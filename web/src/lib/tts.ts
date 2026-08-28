@@ -83,13 +83,20 @@ interface Prefill {
 /** A grow-once buffer whose tail is handed to the graph as the past. */
 class Cache {
   buffer: Float32Array<ArrayBuffer>;
-  length = 0;
+  length: number;
 
+  /**
+   * `prepad` zero entries count as already written, so a cache read through a
+   * fixed-size window is long enough from the first step and `window` can hand
+   * back a view instead of building a padded copy every frame.
+   */
   constructor(
     readonly stride: number,
     capacity: number,
+    prepad = 0,
   ) {
-    this.buffer = new Float32Array(stride * capacity);
+    this.buffer = new Float32Array(stride * (capacity + prepad));
+    this.length = prepad;
   }
 
   get capacity(): number {
@@ -119,6 +126,92 @@ class Cache {
     const padded = new Float32Array(size * this.stride);
     padded.set(this.buffer.subarray(0, this.length * this.stride), (size - this.length) * this.stride);
     return padded;
+  }
+}
+
+/**
+ * The tensors one decode step hands the graph, built once per chunk.
+ *
+ * The loop runs about twelve times a second and hands the whole past back in
+ * every frame, so it writes the scalars and the latent in place and rebinds
+ * views over the caches, rather than building a fresh set of tensors and
+ * copying the caches on this side of the runtime. Nothing here is shared
+ * between takes: `stream` makes its own.
+ */
+class DecodeFeeds {
+  readonly noise: Float32Array<ArrayBuffer>;
+  private readonly latent: Float32Array<ArrayBuffer>;
+  private readonly isBos: Float32Array<ArrayBuffer>;
+  private readonly flowOffset = new BigInt64Array(1);
+  private readonly mimiOffset = new BigInt64Array(1);
+  private readonly kvDims: number[];
+  private readonly mimiKvDims: number[];
+  private readonly feeds: Record<string, ort.Tensor> = {};
+
+  constructor(
+    private readonly config: ModelConfig,
+    private readonly inputNames: Set<string>,
+    lora: number,
+    decodeSteps: number,
+  ) {
+    this.noise = new Float32Array(config.latent_dim);
+    this.latent = new Float32Array(config.latent_dim);
+    this.isBos = Float32Array.from([1]);
+    this.kvDims = [config.flow_layers, 2, 1, config.flow_heads, config.flow_head_dim];
+    this.mimiKvDims = [
+      config.mimi_kv_len,
+      config.mimi_layers,
+      2,
+      1,
+      config.mimi_heads,
+      config.mimi_head_dim,
+    ];
+    this.bind("tokens", new ort.Tensor("int64", new BigInt64Array(1), [1, 1]));
+    this.bind("latent", new ort.Tensor("float32", this.latent, [1, 1, config.latent_dim]));
+    this.bind("is_bos", new ort.Tensor("float32", this.isBos, [1, 1, 1]));
+    this.bind(
+      "cond",
+      new ort.Tensor("float32", new Float32Array(config.model_dim), [1, 1, config.model_dim]),
+    );
+    this.bind("gates", new ort.Tensor("float32", LATENT_GATE, [3]));
+    this.bind("noise", new ort.Tensor("float32", this.noise, [1, config.latent_dim]));
+    this.bind("flow_offset", new ort.Tensor("int64", this.flowOffset, []));
+    this.bind("mimi_offset", new ort.Tensor("int64", this.mimiOffset, []));
+    this.bind("decode_steps", new ort.Tensor("float32", Float32Array.from([decodeSteps]), []));
+    this.bind("lora", new ort.Tensor("float32", Float32Array.from([lora]), []));
+  }
+
+  /** Older exports lack the adapter and decode-step inputs; feed what exists. */
+  private bind(name: string, tensor: ort.Tensor): void {
+    if (this.inputNames.has(name)) this.feeds[name] = tensor;
+  }
+
+  /** Point the step at the caches as they stand, and run it. */
+  run(
+    session: ort.InferenceSession,
+    flowKv: Cache,
+    mimiKv: Cache,
+    mimiConv: Float32Array<ArrayBuffer>,
+    mimiOffset: bigint,
+  ): Promise<ort.InferenceSession.OnnxValueMapType> {
+    this.flowOffset[0] = BigInt(flowKv.length);
+    this.mimiOffset[0] = mimiOffset;
+    // Only the views move: a cache buffer is reallocated when it grows, and the
+    // mimi window slides forward a step at a time. The runtime copies whatever
+    // it is handed into its own heap, so there is nothing to copy out here.
+    this.bind("flow_kv", new ort.Tensor("float32", flowKv.window(), [flowKv.length, ...this.kvDims]));
+    this.bind(
+      "mimi_kv",
+      new ort.Tensor("float32", mimiKv.window(this.config.mimi_kv_len), this.mimiKvDims),
+    );
+    this.bind("mimi_conv", new ort.Tensor("float32", mimiConv, [this.config.conv_state_size]));
+    return session.run(this.feeds);
+  }
+
+  /** Carry the latent the last step produced into the next one. */
+  advance(latent: Float32Array): void {
+    this.latent.set(latent);
+    this.isBos[0] = 0;
   }
 }
 
@@ -336,10 +429,7 @@ export class PocketTTS {
 
       flowKv.length = voiceLength;
       flowKv.reserve(tokens.length + maxFrames);
-      const mimiKv = new Cache(
-        config.mimi_layers * 2 * config.mimi_heads * config.mimi_head_dim,
-        config.mimi_kv_len + maxFrames * config.mimi_steps_per_latent,
-      );
+      const mimiKv = this.emptyMimiCache(maxFrames * config.mimi_steps_per_latent);
       let mimiConv = new Float32Array(config.conv_state_size);
       let mimiOffset = 0n;
 
@@ -357,35 +447,21 @@ export class PocketTTS {
       });
       flowKv.append(outputs.flow_kv_new.data as Float32Array<ArrayBuffer>);
 
-      let latent = new Float32Array(config.latent_dim);
-      let isBos = Float32Array.from([1]);
+      const decode = new DecodeFeeds(config, this.inputNames, gate, decodeSteps);
+      const deviation = Math.sqrt(temperature);
       let eosFrame: number | null = null;
 
       for (let frame = 0; frame < maxFrames; frame++) {
         options.signal?.throwIfAborted();
-        const noise = new Float32Array(config.latent_dim);
-        const deviation = Math.sqrt(temperature);
+        const noise = decode.noise;
         for (let i = 0; i < noise.length; i++) noise[i] = random.normal() * deviation;
 
-        outputs = await this.step({
-          latent,
-          isBos,
-          gates: LATENT_GATE,
-          seq: 1,
-          noise,
-          flowKv,
-          mimiKv,
-          mimiOffset,
-          mimiConv,
-          decodeSteps,
-          lora: gate,
-        });
+        outputs = await decode.run(this.session, flowKv, mimiKv, mimiConv, mimiOffset);
         flowKv.append(outputs.flow_kv_new.data as Float32Array<ArrayBuffer>);
         mimiKv.append(outputs.mimi_kv_new.data as Float32Array<ArrayBuffer>);
         mimiConv = outputs.mimi_conv_out.data as Float32Array<ArrayBuffer>;
         mimiOffset = (outputs.mimi_offset_out.data as BigInt64Array<ArrayBuffer>)[0];
-        latent = outputs.next_latent.data as Float32Array<ArrayBuffer>;
-        isBos = Float32Array.from([0]);
+        decode.advance(outputs.next_latent.data as Float32Array);
 
         const eosLogit = (outputs.eos_logit.data as Float32Array<ArrayBuffer>)[0];
         if (eosFrame === null && eosLogit > config.eos_threshold) eosFrame = frame;
@@ -418,6 +494,16 @@ export class PocketTTS {
   private emptyFlowCache(capacity: number): Cache {
     const config = this.config;
     return new Cache(config.flow_layers * 2 * config.flow_heads * config.flow_head_dim, capacity);
+  }
+
+  /** The graph always reads `mimi_kv_len` entries, so the cache starts padded. */
+  private emptyMimiCache(capacity = 0): Cache {
+    const config = this.config;
+    return new Cache(
+      config.mimi_layers * 2 * config.mimi_heads * config.mimi_head_dim,
+      capacity,
+      config.mimi_kv_len,
+    );
   }
 
   private cachedPrefill(voice: string | Float32Array, gate: number): Prefill | undefined {
@@ -466,10 +552,7 @@ export class PocketTTS {
       seq: frames,
       noise: new Float32Array(config.latent_dim),
       flowKv: this.emptyFlowCache(frames + 1),
-      mimiKv: new Cache(
-        config.mimi_layers * 2 * config.mimi_heads * config.mimi_head_dim,
-        config.mimi_kv_len,
-      ),
+      mimiKv: this.emptyMimiCache(),
       mimiOffset: 0n,
       mimiConv: new Float32Array(config.conv_state_size),
       decodeSteps: config.sampler_decode_steps,
@@ -521,7 +604,7 @@ export class PocketTTS {
       ),
       gates: new ort.Tensor("float32", args.gates, [3]),
       noise: new ort.Tensor("float32", args.noise, [1, config.latent_dim]),
-      flow_kv: new ort.Tensor("float32", args.flowKv.window().slice(), [
+      flow_kv: new ort.Tensor("float32", args.flowKv.window(), [
         args.flowKv.length,
         config.flow_layers,
         2,
@@ -530,7 +613,7 @@ export class PocketTTS {
         config.flow_head_dim,
       ]),
       flow_offset: new ort.Tensor("int64", BigInt64Array.from([BigInt(args.flowKv.length)]), []),
-      mimi_kv: new ort.Tensor("float32", args.mimiKv.window(config.mimi_kv_len).slice(), [
+      mimi_kv: new ort.Tensor("float32", args.mimiKv.window(config.mimi_kv_len), [
         config.mimi_kv_len,
         config.mimi_layers,
         2,
