@@ -36,10 +36,10 @@ LINES = {
     # Latin words are left as written and read as text.
     "brands": "אני עובד עם Google ועם Instagram כל יום.",
     # Nikud is already unambiguous, so it is kept exactly as typed.
-    "nikud": "הַכּוֹחַ לְשַׁנּוֹת מַתְחִיל בָּרֶגַע שֶׁבּוֹ אַתָּה מַאֲמִין!",
+    "nikud": "הַכּוֹחַ לְשַׁנּוֹת מַתְחִיל בָּרֶגַע שֶׁבּוֹ אַתָּה מַאֲמִין שֶׁזֶּה אֶפְשָׁרִי!",
     # Enhanced nikud adds the phonikud marks on top: a prefix boundary, an ole
     # for stress, and a meteg marking a vocal shva.
-    "nikud_enhanced": "הַ|כּ֫וֹחַ לְֽשַׁנּוֹת מַתְחִיל בָּֽ|רֶ֫גַע שֶׁ|בּוֹ אַתָּה מַאֲמִין!",
+    "nikud_enhanced": "הַ|כּ֫וֹחַ לְֽשַׁנּוֹת מַתְחִיל בָּֽ|רֶ֫גַע שֶׁ|בּוֹ אַתָּה מַאֲמִין שֶׁ|זֶּה אֶפְשָׁרִי!",
     # Double brackets hold IPA, for when you want to fix one word yourself.
     "literal": "המילה [[ʃalˈom]] נשמעת ככה.",
 }
