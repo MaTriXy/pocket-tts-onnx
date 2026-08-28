@@ -68,6 +68,13 @@ sent anywhere; the microphone is released the moment you stop.
 Streaming plays each frame as it arrives and then lets it go, so the finished
 take is handed to a small player for replay, seeking and download.
 
+The waveform is drawn from the frames themselves — one bar per 80 ms frame,
+filling left to right as the model produces them — and the same drawing becomes
+the finished take's scrubber, so nothing jumps when generation ends. Playback
+can be paused mid-stream while frames keep arriving, and the streaming view is
+held until the last frame has actually been heard rather than when the model
+stops producing them.
+
 The token view — the toggle beside the composer's format label — shows the text
 after phonemization and the tokens it became, with the adapter's atomic
 characters marked apart from the SentencePiece pieces. It is the quickest way to
@@ -132,6 +139,16 @@ sampler is chaotic, so that difference grows into a different-but-equally-valid
 take. Everything upstream of the graph — tokens, chunk boundaries, phonemes,
 voice conditioning — was verified byte-identical, which is the part a bug would
 show up in.
+
+## Why not WebGPU
+
+onnxruntime-web has a WebGPU execution provider, and this model does load on it.
+Measured here on the same graph with the same inputs, a generation step took
+**31 ms on wasm against 38 ms on WebGPU** — slower, not faster. The model is
+int8, which the GPU path does not favour, and it runs one 80 ms frame at a time,
+so dispatch overhead outweighs the arithmetic. It would also mean shipping the
+27 MB jsep build rather than the 14 MB one. A float32 export might suit the GPU
+better, at four hundred megabytes of download.
 
 ## Speed
 

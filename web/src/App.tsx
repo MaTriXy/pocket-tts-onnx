@@ -16,6 +16,8 @@ import {
   IconArrowRight,
   IconBrandGithub,
   IconBinaryTree2,
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
   IconPlayerStopFilled,
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -83,6 +85,11 @@ const STAGE_LABEL: Record<Stage, string> = {
 
 const RTL = /[\u0590-\u05FF]/;
 
+const clock = (seconds: number) => {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+};
+
 export function App() {
   const [engine, setEngine] = useState<Engine | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -102,8 +109,13 @@ export function App() {
 
   const [speaking, setSpeaking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [buffering, setBuffering] = useState(false);
+  // One peak per generated frame; the waveform draws these and the player
+  // scrubs them afterwards, so it is the same picture throughout.
+  const [levels, setLevels] = useState<number[]>([]);
+  const [played, setPlayed] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [heard, setHeard] = useState(0);
   const [result, setResult] = useState<Blob | null>(null);
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   // The token view is a toggle rather than a URL flag, because it is genuinely
@@ -129,6 +141,7 @@ export function App() {
   const playerRef = useRef<FramePlayer | null>(null);
   const abort = useRef<AbortController | null>(null);
   const recorder = useRef<Recorder | null>(null);
+  const levelsRef = useRef(0);
 
   useEffect(() => {
     Engine.load(MODELS_URL, (nextStage, next) => {
@@ -154,6 +167,13 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  const togglePause = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (player.paused) void player.resume().then(() => setPaused(false));
+    else void player.pause().then(() => setPaused(true));
+  }, []);
+
   const stop = useCallback(() => {
     abort.current?.abort();
     engine?.cancel();
@@ -161,7 +181,6 @@ export function App() {
     playerRef.current = null;
     setSpeaking(false);
     setBuffering(false);
-    setAnalyser(null);
   }, [engine]);
 
   const speak = useCallback(async () => {
@@ -172,6 +191,11 @@ export function App() {
     setSpeaking(true);
     setResult(null);
     setDebug(null);
+    setLevels([]);
+    setPlayed(0);
+    setHeard(0);
+    setPaused(false);
+    levelsRef.current = 0;
     setStatus("preparing");
 
     try {
@@ -186,7 +210,7 @@ export function App() {
         setBuffering(frames.length > 0 && waiting),
       );
       playerRef.current = player;
-      setAnalyser(await player.start());
+      await player.start();
 
       for await (const frame of engine.speak(text, selected, {
         decodeSteps: 2,
@@ -204,6 +228,12 @@ export function App() {
         }
         frames.push(frame);
         player.push(frame as Float32Array<ArrayBuffer>);
+        // The bar for this frame: its peak, lightly compressed so quiet speech
+        // still has shape.
+        let peak = 0;
+        for (const sample of frame) peak = Math.max(peak, Math.abs(sample));
+        levelsRef.current = frames.length;
+        setLevels((current) => [...current, Math.min(1, Math.pow(peak, 0.7) * 1.4)]);
       }
       player.finish();
       setBuffering(false);
@@ -215,13 +245,19 @@ export function App() {
         audio.set(frame, at);
         at += frame.length;
       }
-      setResult(encodeWav(audio, engine.sampleRate));
 
       const seconds = total / engine.sampleRate;
       const elapsed = (performance.now() - started) / 1000;
       setStatus(
         `${seconds.toFixed(1)}s of audio in ${elapsed.toFixed(1)}s — ${(seconds / elapsed).toFixed(1)}× real time`,
       );
+
+      // Generation is done but the speakers are not. Hold the streaming view,
+      // and its stop button, until the last frame has actually been heard.
+      await player.drain();
+      if (!controller.signal.aborted) setResult(encodeWav(audio, engine.sampleRate));
+      player.stop();
+      playerRef.current = null;
     } catch (cause) {
       if (!controller.signal.aborted) {
         setStatus(cause instanceof Error ? cause.message : String(cause));
@@ -301,6 +337,23 @@ export function App() {
       setBusy(false);
     }
   }, [adopt]);
+
+  // Follow the playhead while streaming, so the waveform fills as it is heard.
+  useEffect(() => {
+    if (!speaking) return;
+    let frame = 0;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const player = playerRef.current;
+      const generated = (levelsRef.current * 1920) / (engine?.sampleRate ?? 24000);
+      if (player && generated > 0) {
+        setPlayed(Math.min(1, player.playedSeconds / generated));
+        setHeard(player.playedSeconds);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [engine, speaking]);
 
   // Drive the recording timer and level meter from one loop.
   useEffect(() => {
@@ -428,9 +481,33 @@ export function App() {
                     {debugging && <Debug info={debug} />}
 
                     {result && !speaking ? (
-                      <Player wav={result} filename={`pocket-tts-${mode}.wav`} />
+                      <Player wav={result} levels={levels} filename={`pocket-tts-${mode}.wav`} />
                     ) : (
-                      <Waveform analyser={analyser} active={speaking} />
+                      // The same layout as the player, so nothing jumps when
+                      // generation ends and the finished take takes over.
+                      <Group gap={12} wrap="nowrap" align="center">
+                        <ActionIcon
+                          variant="filled"
+                          color="ink"
+                          radius="xl"
+                          size={34}
+                          disabled={!speaking}
+                          onClick={togglePause}
+                          aria-label={paused ? "Resume" : "Pause"}
+                        >
+                          {paused ? (
+                            <IconPlayerPlayFilled size={14} />
+                          ) : (
+                            <IconPlayerPauseFilled size={14} />
+                          )}
+                        </ActionIcon>
+                        <div style={{ flex: 1 }}>
+                          <Waveform levels={levels} progress={played} />
+                        </div>
+                        <Text className="mono" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {clock(heard)} / {clock((levels.length * 1920) / 24000)}
+                        </Text>
+                      </Group>
                     )}
 
                     <Group justify="space-between" align="center">

@@ -100,6 +100,7 @@ export class FramePlayer {
   private cursor = 0;
   private playing = false;
   private finished = false;
+  private startedAt: number | null = null;
 
   constructor(
     private readonly sampleRate: number,
@@ -119,6 +120,7 @@ export class FramePlayer {
     this.cursor = context.currentTime;
     this.playing = false;
     this.finished = false;
+    this.startedAt = null;
     return analyser;
   }
 
@@ -159,6 +161,7 @@ export class FramePlayer {
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(analyser);
+      if (this.startedAt === null) this.startedAt = this.cursor;
       source.start(this.cursor);
       this.cursor += buffer.duration;
       this.sources.add(source);
@@ -175,6 +178,39 @@ export class FramePlayer {
 
   private get frameSeconds(): number {
     return 1920 / this.sampleRate;
+  }
+
+  /**
+   * Pause and resume playback while frames keep arriving.
+   *
+   * Suspending the context freezes its clock, and every frame is scheduled
+   * against that clock, so the queue simply waits where it is and resumes in
+   * the right place. Generation carries on filling the buffer meanwhile.
+   */
+  async pause(): Promise<void> {
+    await this.context?.suspend();
+  }
+
+  async resume(): Promise<void> {
+    await this.context?.resume();
+  }
+
+  get paused(): boolean {
+    return this.context?.state === "suspended";
+  }
+
+  /** Resolve once everything scheduled has actually been heard. */
+  async drain(): Promise<void> {
+    while (this.context && this.buffered > 0.02) {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+  }
+
+  /** Seconds of audio actually heard so far; frozen while rebuffering. */
+  get playedSeconds(): number {
+    const context = this.context;
+    if (!context || this.startedAt === null) return 0;
+    return Math.max(0, Math.min(this.cursor, context.currentTime) - this.startedAt);
   }
 
   /** Seconds of audio still queued ahead of the playhead. */

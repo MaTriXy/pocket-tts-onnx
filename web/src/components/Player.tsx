@@ -1,7 +1,9 @@
-import { ActionIcon, Box, Group, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, Text, Tooltip } from "@mantine/core";
 import { IconDownload, IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { Waveform } from "./Waveform";
 
 const time = (seconds: number) => {
   const whole = Math.max(0, Math.floor(seconds));
@@ -9,13 +11,21 @@ const time = (seconds: number) => {
 };
 
 /**
- * Replay what was just generated.
+ * The finished take, on the same waveform it was drawn with while streaming.
  *
- * Streaming plays frames as they arrive and then they are gone, so the finished
- * take gets a real element behind it: the browser handles decoding, seeking and
- * replay, and the same blob is what the download button saves.
+ * The bars do not change when generation ends — only the playhead does, and now
+ * it can be dragged. The browser handles decoding and seeking, and the blob
+ * behind it is what the download saves.
  */
-export function Player({ wav, filename }: { wav: Blob; filename: string }) {
+export function Player({
+  wav,
+  levels,
+  filename,
+}: {
+  wav: Blob;
+  levels: number[];
+  filename: string;
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -38,11 +48,9 @@ export function Player({ wav, filename }: { wav: Blob; filename: string }) {
   }, []);
 
   const seek = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (fraction: number) => {
       const audio = audioRef.current;
-      if (!audio || !duration) return;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      audio.currentTime = ((event.clientX - bounds.left) / bounds.width) * duration;
+      if (audio && duration) audio.currentTime = fraction * duration;
     },
     [duration],
   );
@@ -55,15 +63,9 @@ export function Player({ wav, filename }: { wav: Blob; filename: string }) {
     link.click();
   }, [filename, url]);
 
-  const progress = duration ? (position / duration) * 100 : 0;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Group gap={12} wrap="nowrap">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      <Group gap={12} wrap="nowrap" align="center">
         {url && (
           <audio
             ref={audioRef}
@@ -84,25 +86,9 @@ export function Player({ wav, filename }: { wav: Blob; filename: string }) {
           {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
         </ActionIcon>
 
-        <Box
-          onClick={seek}
-          style={{ flex: 1, cursor: "pointer", paddingBlock: 8 }}
-          role="slider"
-          aria-label="Seek"
-          aria-valuenow={Math.round(progress)}
-        >
-          <Box style={{ height: 4, borderRadius: 999, background: "var(--line)" }}>
-            <Box
-              style={{
-                width: `${progress}%`,
-                height: "100%",
-                borderRadius: 999,
-                background: "var(--ink)",
-                transition: playing ? "width 120ms linear" : "none",
-              }}
-            />
-          </Box>
-        </Box>
+        <div style={{ flex: 1 }}>
+          <Waveform levels={levels} progress={duration ? position / duration : 0} onSeek={seek} />
+        </div>
 
         <Text className="mono" style={{ fontVariantNumeric: "tabular-nums" }}>
           {time(position)} / {time(duration)}
