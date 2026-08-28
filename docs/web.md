@@ -27,6 +27,19 @@ cp renikud.onnx web/models/
 In production it fetches them from Hugging Face. Point it anywhere else with
 `?models=<url>` or by setting `VITE_MODELS_URL` at build time.
 
+## Input formats
+
+The Hebrew tab takes ordinary text and decides per part what to do with it:
+double brackets hold IPA and are passed through, Hebrew with nikud is kept as
+typed — plain or with the phonikud marks for stress, vocal shva and prefix
+boundaries — unvocalized Hebrew goes through renikud, and Latin words are read
+as text. There is no separate phonemes tab — `[[ʃalˈom]]` anywhere in the line does
+that job, in either language.
+
+Latin words are left as written rather than run through espeak, which would mean
+shipping an 18 MB wasm build of it to every visitor. The Python package will use
+espeak if you ask it to.
+
 ## Cloning a voice
 
 Two ways in, both local: drop an audio file, or press Record and speak for five
@@ -75,6 +88,7 @@ Python it came from:
 | `lib/sentencepiece.ts` | unigram tokenizer, byte fallback | 56 cases, exact |
 | `lib/text.ts` | chunking, prompt prep, mixed IPA tokenizer | every case, exact |
 | `lib/g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
+| `lib/mixed.ts` | routing each part of the text to the right phonemizer | shares its cases with Python |
 | `lib/tts.ts` | the streaming loop and its caches | see below |
 | `lib/recorder.ts` | microphone capture and its level meter | — |
 | `lib/onnxMeta.ts` | ONNX metadata without parsing the graph | — |

@@ -16,6 +16,7 @@ import { IconArrowRight, IconBrandGithub, IconPlayerStopFilled } from "@tabler/i
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Examples, type Example } from "./components/Examples";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
@@ -23,16 +24,47 @@ import { Waveform } from "./components/Waveform";
 import type { Progress } from "./lib/assets";
 import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
 import { Engine, type Stage } from "./lib/engine";
+import { phonemizeMixed } from "./lib/mixed";
 import { Recorder } from "./lib/recorder";
 import { configureRuntime, MODELS_URL } from "./lib/runtime";
 
-type Mode = "english" | "hebrew" | "phonemes";
+type Mode = "english" | "hebrew";
+
+// Anything in double brackets is already IPA and is spoken exactly as written,
+// which is how you fix a word the phonemizer gets wrong.
+const EXAMPLES: Record<Mode, Example[]> = {
+  english: [
+    {
+      label: "hello",
+      text: "Hello there. This whole model is running inside your browser — no server, no upload, nothing leaving this tab.",
+    },
+    {
+      label: "phonemes",
+      text: "You can spell a word out yourself: the city of [[bɹˈaɪtən]], for instance.",
+    },
+  ],
+  hebrew: [
+    { label: "עברית", text: "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!", rtl: true },
+    { label: "אנגלית בתוך עברית", text: "אני עובד עם Google ועם Instagram כל יום.", rtl: true },
+    {
+      label: "ניקוד",
+      text: "הַכּוֹחַ לְשַׁנּוֹת מַתְחִיל בָּרֶגַע שֶׁבּוֹ אַתָּה מַאֲמִין!",
+      rtl: true,
+    },
+    {
+      // Enhanced nikud adds the phonikud marks on top: a prefix boundary, an
+      // ole for stress, and a meteg marking a vocal shva.
+      label: "ניקוד משופר",
+      text: "הַ|כּ֫וֹחַ לְֽשַׁנּוֹת מַתְחִיל בָּֽ|רֶ֫גַע שֶׁ|בּוֹ אַתָּה מַאֲמִין!",
+      rtl: true,
+    },
+    { label: "פונמות", text: "המילה [[ʃalˈom]] נשמעת ככה.", rtl: true },
+  ],
+};
 
 const SAMPLES: Record<Mode, string> = {
-  english:
-    "Hello there. This whole model is running inside your browser — no server, no upload, nothing leaving this tab.",
-  hebrew: "שלום! כל המודל הזה רץ בתוך הדפדפן שלך, בלי שרת ובלי להעלות שום דבר.",
-  phonemes: "ʃalˈom! zˈe hakˈol ʃelˈi, medabˈeʁ ʔivʁˈit.",
+  english: EXAMPLES.english[0].text,
+  hebrew: EXAMPLES.hebrew[0].text,
 };
 
 const STAGE_LABEL: Record<Stage, string> = {
@@ -40,6 +72,8 @@ const STAGE_LABEL: Record<Stage, string> = {
   g2p: "Downloading the Hebrew phonemizer",
   encoder: "Downloading the voice encoder",
 };
+
+const RTL = /[\u0590-\u05FF]/;
 
 export function App() {
   const [engine, setEngine] = useState<Engine | null>(null);
@@ -116,7 +150,13 @@ export function App() {
           setStage("g2p");
           setProgress(next);
         });
-        prompt = await g2p.phonemize(text);
+        // Hebrew that already carries nikud, and anything in double brackets,
+        // is left alone; only unvocalized Hebrew needs the phonemizer. Latin
+        // words go through the tokenizer as ordinary text.
+        prompt = await phonemizeMixed(text, {
+          hebrew: (part) => g2p.phonemize(part),
+          latin: async (part) => part,
+        });
       }
       const phonemes = mode !== "english";
       const selected =
@@ -261,11 +301,11 @@ export function App() {
 
   const modes = useMemo(() => {
     const options = [{ label: "English", value: "english" }];
-    if (engine?.hasPhonemes) {
-      options.push({ label: "Hebrew", value: "hebrew" }, { label: "Phonemes", value: "phonemes" });
-    }
+    if (engine?.hasPhonemes) options.push({ label: "Hebrew", value: "hebrew" });
     return options;
   }, [engine]);
+
+  const rtl = RTL.test(text);
 
   return (
     <div className="shell">
@@ -320,12 +360,10 @@ export function App() {
                         radius="xl"
                         size="xs"
                       />
-                      <Text className="mono">
-                        {mode === "phonemes" ? "stressed IPA" : mode === "hebrew" ? "עברית" : "text"}
-                      </Text>
+                      <Text className="mono">{mode === "hebrew" ? "עברית" : "text"}</Text>
                     </Group>
 
-                    <Box className={`composer ${mode === "hebrew" ? "rtl" : ""}`}>
+                    <Box className={`composer ${rtl ? "rtl" : ""}`}>
                       <Textarea
                         value={text}
                         onChange={(event) => setText(event.currentTarget.value)}
@@ -333,9 +371,14 @@ export function App() {
                         minRows={3}
                         maxRows={9}
                         variant="unstyled"
-                        placeholder={mode === "phonemes" ? "ʃalˈom" : "Say something"}
+                        placeholder="Say something"
                       />
                     </Box>
+
+                    <Examples
+                      examples={EXAMPLES[mode]}
+                      onPick={(example) => setText(example.text)}
+                    />
 
                     {result && !speaking ? (
                       <Player wav={result} filename={`pocket-tts-${mode}.wav`} />

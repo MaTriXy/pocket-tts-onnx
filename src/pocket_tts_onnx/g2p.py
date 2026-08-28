@@ -20,10 +20,15 @@ phonemization itself.
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
 DEFAULT_LANGUAGE = "en-us"
+# Text between double brackets is already phonemes and is passed straight through.
+LITERAL = re.compile(r"\[\[(.*?)\]\]", re.DOTALL)
+_WORDS = re.compile(r"(\s+)")
+_SCRIPTS = re.compile(r"[\u0590-\u05FF]+|[^\u0590-\u05FF]+")
 HEBREW_LANGUAGES = {"he", "he-il", "heb", "hebrew"}
 # espeak wants a full tag, but "en" is what everyone reaches for.
 LANGUAGE_ALIASES = {"en": "en-us", "english": "en-us"}
@@ -102,3 +107,109 @@ def phonemize_all(
         return [g2p.phonemize(text).strip() for text in texts]
     language = LANGUAGE_ALIASES.get(language, language)
     return [line.strip() for line in _espeak_backend(language).phonemize(list(texts), strip=True)]
+
+
+def _has_nikud(word: str) -> bool:
+    """A nikud mark, or the phonikud prefix boundary, makes a word unambiguous."""
+    return any(0x0590 <= ord(char) <= 0x05CF or char == "|" for char in word)
+
+
+def _script(run: str) -> str:
+    if any(0x05D0 <= ord(char) <= 0x05FF for char in run):
+        return "hebrew"
+    return "latin" if any(char.isalpha() for char in run) else "neutral"
+
+
+def _runs(text: str) -> list[tuple[str, str]]:
+    """Split into stretches of one script, keeping vocalized words whole."""
+    out: list[tuple[str, str]] = []
+    for token in _WORDS.split(text):
+        if token == "":
+            continue
+        if token.isspace():
+            out.append(("neutral", token))
+        elif _has_nikud(token):
+            out.append(("vocalized", token))
+        else:
+            # A word can hold both scripts, as in "ב-Google".
+            for run in _SCRIPTS.findall(token):
+                out.append((_script(run), run))
+    return out
+
+
+def _groups(text: str) -> list[tuple[str, str]]:
+    """Merge neighbouring runs so each G2P sees whole phrases, not fragments."""
+    groups: list[tuple[str, list[str]]] = []
+    for kind, run in _runs(text):
+        if groups and (kind == "neutral" or groups[-1][0] == kind):
+            groups[-1][1].append(run)
+        elif groups and groups[-1][0] == "neutral" and len(groups) == 1:
+            groups[-1] = (kind, [*groups[-1][1], run])
+        else:
+            groups.append((kind, [run]))
+    return [(kind, "".join(parts)) for kind, parts in groups]
+
+
+def phonemize_mixed(
+    text: str, model: str | Path | None = None, language: str | None = None
+) -> str:
+    """Turn everyday mixed text into what a multiformat adapter expects.
+
+    Each part goes the shortest way to phonemes it can:
+
+    * `[[ʃalˈom]]` is already IPA, so the brackets come off and nothing else
+      happens to it;
+    * Hebrew carrying nikud is already unambiguous, so it is kept exactly as
+      written and tokenized as atomic Hebrew and nikud characters;
+    * unvocalized Hebrew goes through renikud, which needs `model`;
+    * Latin script is left as written, which the tokenizer sends through
+      SentencePiece like any other text. Pass `language` to run it through
+      espeak instead.
+
+    ```python
+    phonemize_mixed("אני עובד עם Google כל יום", model="renikud.onnx")
+    ```
+    """
+    out: list[str] = []
+    at = 0
+    for match in LITERAL.finditer(text):
+        out.append(_phonemize_plain(text[at : match.start()], model, language))
+        out.append(match.group(1))
+        at = match.end()
+    out.append(_phonemize_plain(text[at:], model, language))
+    return _tidy("".join(out).strip())
+
+
+def _tidy(ipa: str) -> str:
+    """Clean up the seams between two phonemizers.
+
+    A one-letter Hebrew prefix such as the `ב` of `ב-Google` reaches renikud
+    with no word around it, and can come back as a bare stress mark that then
+    collides with the stress of the word after it.
+    """
+    ipa = re.sub(r"\u02c8{2,}", "\u02c8", ipa)
+    return re.sub(r"\u02c8(?=[\s,.!?;:]|$)", "", ipa)
+
+
+def _phonemize_plain(text: str, model: str | Path | None, language: str | None) -> str:
+    pieces = []
+    for kind, group in _groups(text):
+        if kind == "hebrew":
+            pass
+        elif kind == "latin" and language is not None:
+            pass
+        else:
+            pieces.append(group)  # vocalized, punctuation, or plain English
+            continue
+        # Both backends strip, which would weld words together across a group
+        # boundary, so the surrounding space is put back by hand.
+        lead = group[: len(group) - len(group.lstrip())]
+        trail = group[len(group.rstrip()) :]
+        core = group.strip()
+        spoken = (
+            phonemize(core, language="he", model=model)
+            if kind == "hebrew"
+            else phonemize(core, language=language)
+        )
+        pieces.append(lead + spoken + trail)
+    return "".join(pieces)

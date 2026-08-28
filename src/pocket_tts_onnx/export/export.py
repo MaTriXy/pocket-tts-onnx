@@ -38,19 +38,25 @@ LORA_DEFAULTS = {"frames_after_eos": 2, "temperature": 0.3, "max_tokens_per_chun
 def load_adapter(path: Path) -> dict:
     """The trainable slice of a pocket-tts finetune checkpoint.
 
-    Carries rank-r LoRA for the attention projections, the extra IPA embedding
-    rows, and the retrained final norm and EOS head.
+    Carries rank-r LoRA for the attention projections, the extra embedding rows
+    for whatever atomic characters it was trained on, and the retrained final
+    norm and EOS head. Early checkpoints held only IPA characters under
+    `ipa_chars`; later ones add nikud and Hebrew under `extra_chars`.
     """
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    missing = {"lora", "extra_embed", "ipa_chars", "out_norm", "out_eos"} - set(checkpoint)
+    missing = {"lora", "extra_embed", "out_norm", "out_eos"} - set(checkpoint)
     if missing:
         raise ValueError(f"{path} is not a stage-B pocket-tts adapter: missing {sorted(missing)}")
+    chars = checkpoint.get("extra_chars") or checkpoint["ipa_chars"]
+    rows = checkpoint["extra_embed"]["weight"].shape[0]
+    if rows != len(chars) + 1:
+        raise ValueError(f"{path} has {rows} embedding rows for {len(chars)} characters + pad")
     return {
         "lora": {key: tensor.float() for key, tensor in checkpoint["lora"].items()},
         "extra_embed": checkpoint["extra_embed"]["weight"].float(),
         "out_norm": {k: v.float() for k, v in checkpoint["out_norm"].items()},
         "out_eos": {k: v.float() for k, v in checkpoint["out_eos"].items()},
-        "ipa_chars": checkpoint["ipa_chars"],
+        "atomic_chars": chars,
         "step": checkpoint.get("step"),
     }
 
@@ -280,7 +286,7 @@ def build_metadata(
     }
     if lora is not None:
         config["lora"] = {
-            "ipa_chars": lora["ipa_chars"],
+            "atomic_chars": lora["atomic_chars"],
             "vocab_base": tts_model.flow_lm.conditioner.embed.num_embeddings,
             "step": lora["step"],
             "defaults": LORA_DEFAULTS,
@@ -313,7 +319,7 @@ def export_model(
     adapter = load_adapter(lora) if lora is not None else None
     if adapter is not None:
         logger.info(
-            "Adapter: %d IPA rows, %d LoRA tensors, step %s",
+            "Adapter: %d atomic rows, %d LoRA tensors, step %s",
             adapter["extra_embed"].shape[0],
             len(adapter["lora"]),
             adapter["step"],

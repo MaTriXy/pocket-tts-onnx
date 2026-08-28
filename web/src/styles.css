@@ -151,3 +151,21 @@ body::before {
 ::selection {
   background: rgba(91, 100, 216, 0.18);
 }
+
+.chip {
+  cursor: pointer;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.chip:hover {
+  border-color: var(--ink-faint);
+  color: var(--ink);
+  background: var(--line-soft);
+}

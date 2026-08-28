@@ -23,12 +23,21 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
+/**
+ * Fetch an asset, and keep it under a key that changes when it does.
+ *
+ * The URL alone is not a safe cache key: a new model published to the same
+ * filename would be masked by the old one forever. The manifest carries a
+ * digest per file, so that goes in the key and a changed model simply misses.
+ */
 export async function fetchAsset(
   url: string,
   onProgress?: (progress: Progress) => void,
+  version?: string,
 ): Promise<ArrayBuffer> {
   const cache = await openCache();
-  const hit = await cache?.match(url);
+  const key = version ? `${url}#${version}` : url;
+  const hit = await cache?.match(key);
   if (hit) {
     const bytes = await hit.arrayBuffer();
     onProgress?.({ loaded: bytes.byteLength, total: bytes.byteLength, cached: true });
@@ -61,7 +70,7 @@ export async function fetchAsset(
   }
   // Cache a copy, but never fail the load over it: quota is easy to exceed.
   try {
-    await cache?.put(url, new Response(bytes.slice().buffer));
+    await cache?.put(key, new Response(bytes.slice().buffer));
   } catch {
     /* the model still works, it just downloads again next time */
   }

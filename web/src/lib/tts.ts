@@ -51,7 +51,9 @@ export interface ModelConfig {
   tokens_per_second_estimate: number;
   gen_seconds_padding: number;
   lora?: {
-    ipa_chars: string;
+    /** Named `ipa_chars` before the inventory grew to nikud and Hebrew. */
+    atomic_chars?: string;
+    ipa_chars?: string;
     vocab_base: number;
     defaults: { frames_after_eos?: number; temperature?: number; max_tokens_per_chunk?: number };
   } | null;
@@ -188,9 +190,9 @@ export class PocketTTS {
     this.voiceBlobs = assets.voices;
     this.inputNames = new Set(session.inputNames);
     const lora = this.config.lora;
-    this.phonemeTokenizer = lora
-      ? new MixedTokenizer(this.sp, lora.ipa_chars, lora.vocab_base)
-      : null;
+    const atomic = lora?.atomic_chars ?? lora?.ipa_chars;
+    this.phonemeTokenizer =
+      lora && atomic ? new MixedTokenizer(this.sp, atomic, lora.vocab_base) : null;
   }
 
   static async create(model: ArrayBuffer, assets: Assets): Promise<PocketTTS> {

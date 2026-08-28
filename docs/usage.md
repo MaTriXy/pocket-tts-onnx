@@ -27,7 +27,7 @@ shortens a prompt.
 `voice=None` prompts with nothing at all, which is what an adapter trained
 without voice prompts expects.
 
-## Phonemes and adapters
+## Adapters
 
 A file exported with `--lora <checkpoint.pt>` speaks both ways:
 
@@ -36,31 +36,50 @@ tts.create("Ordinary English spelling.", voice=cond)                  # base mod
 tts.create("ʃalˈom, mˈa ʃlomχˈa hajˈom?", voice=cond, phonemes=True)  # adapter
 ```
 
-`phonemes=True` reads stressed IPA (keep `ˈ`, U+02C8) and turns the adapter on;
-`lora=` overrides that gate if you ever want the two apart. Mixed IPA and
-ordinary words in one string work, because only IPA characters get their own
-ids and everything else still goes through SentencePiece.
+`phonemes=True` turns the adapter on and switches to its tokenizer, where each
+IPA, nikud and Hebrew character gets an id of its own and everything else still
+goes through SentencePiece. `lora=` overrides that gate if you ever want the two
+apart.
 
-Phoneme mode carries its own defaults from the adapter's inference path: no
-capitalisation or trailing period, both of which corrupt IPA; a fixed 2-frame
-tail; and a larger chunk budget, since IPA spends about one token per character
-where English spelling spends one per word piece.
+Adapter mode carries its own defaults from the adapter's inference path: no
+capitalisation or trailing period, both of which corrupt phonemes; a fixed
+2-frame tail; and a larger chunk budget, since one token per character adds up
+faster than one per word piece.
 
-## Text to IPA
+## Getting text into phonemes
+
+`phonemize_mixed` takes ordinary text and sends each part the shortest way it
+can:
 
 ```python
-from pocket_tts_onnx import phonemize
+from pocket_tts_onnx import phonemize_mixed
 
-tts.create(phonemize("How are you today?"), voice=cond, phonemes=True)
-tts.create(phonemize("שלום עולם", language="he"), voice=cond, phonemes=True)
+text = phonemize_mixed("אני עובד עם Google כל יום.", model="renikud.onnx")
+tts.create(text, voice=cond, phonemes=True)
 ```
 
-English goes through espeak. Hebrew has no espeak path worth using, so it goes
-through [renikud](https://huggingface.co/thewh1teagle/renikud), whose weights are
-a separate download — pass `model=`, set `$RENIKUD_MODEL`, or let
-`huggingface_hub` fetch them. Backends are built once and reused: the first
-English call spends about a second loading espeak and later ones are
-microseconds; renikud is 61 ms then 3 ms.
+| written as | becomes |
+| --- | --- |
+| `[[ʃalˈom]]` | itself, brackets removed — for fixing one word by hand |
+| Hebrew with nikud, plain or enhanced | itself, kept exactly as typed |
+| unvocalized Hebrew | phonemes from [renikud](https://huggingface.co/thewh1teagle/renikud) |
+| Latin script | itself, read as text — pass `language=` to run espeak instead |
+
+Nikud is already unambiguous, which is why it is left alone; unvocalized Hebrew
+is not, which is why it needs a phonemizer. renikud's weights are a separate
+download: pass `model=`, set `$RENIKUD_MODEL`, or let `huggingface_hub` fetch
+them.
+
+`phonemize` is the single-language version underneath it, if you want one script
+only:
+
+```python
+phonemize("How are you today?")        # espeak
+phonemize("שלום עולם", language="he")  # renikud
+```
+
+Backends are built once and reused: the first English call spends about a second
+loading espeak and later ones are microseconds; renikud is 61 ms then 3 ms.
 
 ## Decode steps
 

@@ -11,11 +11,17 @@ import { fetchAsset, fetchJson, type Progress } from "./assets";
 import { HebrewG2P } from "./g2p";
 import { PocketTTS, type Assets } from "./tts";
 
+interface Asset {
+  file: string;
+  bytes: number;
+  sha256?: string;
+}
+
 export interface Manifest {
   version: number;
-  model: { file: string; bytes: number };
-  encoder: { file: string; bytes: number } | null;
-  assets: { file: string; bytes: number };
+  model: Asset;
+  encoder: Asset | null;
+  assets: Asset;
   sampleRate: number;
   voices: string[];
   phonemes: boolean;
@@ -41,7 +47,11 @@ export class Engine {
     const manifest = await fetchJson<Manifest>(baseUrl + "manifest.json");
     const [assets, model] = await Promise.all([
       fetchJson<Assets>(baseUrl + manifest.assets.file),
-      fetchAsset(baseUrl + manifest.model.file, (progress) => onProgress("model", progress)),
+      fetchAsset(
+        baseUrl + manifest.model.file,
+        (progress) => onProgress("model", progress),
+        manifest.model.sha256,
+      ),
     ]);
     const tts = await PocketTTS.create(model, assets);
     return new Engine(tts, manifest, baseUrl);

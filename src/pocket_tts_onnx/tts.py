@@ -147,7 +147,7 @@ class PocketTTS:
         if self.config.lora is not None:
             self.phonemes_tokenizer = MixedTokenizer(
                 self.tokenizer,
-                self.config.lora["ipa_chars"],
+                self.config.lora.get("atomic_chars") or self.config.lora["ipa_chars"],
                 self.config.lora["vocab_base"],
             )
         self._encoder_blob = metadata.get("pocket_tts_encoder")

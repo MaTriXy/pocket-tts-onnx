@@ -74,7 +74,11 @@ def split_for_web(source: Path, output: Path, base_url: str = "") -> dict:
 
 
 def _entry(path: Path) -> dict:
-    return {"file": path.name, "bytes": path.stat().st_size}
+    """Name, size, and enough of a digest to key a browser cache on."""
+    import hashlib
+
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    return {"file": path.name, "bytes": path.stat().st_size, "sha256": digest}
 
 
 def main() -> None:
