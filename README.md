@@ -20,7 +20,8 @@ for frame in tts.stream("Hello world.", voice="alba"):
 ```
 
 Grab a model from the [releases](../../releases) and put it in the working
-directory.
+directory. Or skip all of it and **[try it in your browser](https://thewh1teagle.github.io/pocket-tts-onnx/)** —
+same model, running locally in the tab.
 
 ## More
 
@@ -29,3 +30,4 @@ directory.
 * [How it works](docs/design.md) — the streaming graph, what rides in the file,
   int8, and what was measured against upstream
 * [Exporting](docs/export.md) — building your own `.onnx`
+* [The web demo](docs/web.md) — running it all in the browser

@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 pocket-tts-onnx-export = "pocket_tts_onnx.export.export:main"
+pocket-tts-onnx-web = "pocket_tts_onnx.export.web:main"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]

@@ -1,0 +1,9 @@
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_MODELS_URL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv & { BASE_URL: string; DEV: boolean; PROD: boolean };
+}
