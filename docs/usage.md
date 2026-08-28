@@ -63,7 +63,7 @@ tts.create(text, voice=cond, phonemes=True)
 | `[[ʃalˈom]]` | itself, brackets removed — for fixing one word by hand |
 | Hebrew with nikud, plain or enhanced | itself, kept exactly as typed |
 | unvocalized Hebrew | phonemes from [renikud](https://huggingface.co/thewh1teagle/renikud) |
-| Latin script | itself, read as text — pass `language=` to run espeak instead |
+| Latin script | phonemes from espeak — pass `language=None` to leave it as written |
 
 Nikud is already unambiguous, which is why it is left alone; unvocalized Hebrew
 is not, which is why it needs a phonemizer. renikud's weights are a separate

@@ -7,3 +7,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv & { BASE_URL: string; DEV: boolean; PROD: boolean };
 }
+
+// espeak-ng ships no types; the shape used here is declared in lib/espeak.ts.
+declare module "espeak-ng" {
+  const factory: unknown;
+  export default factory;
+}

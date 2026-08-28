@@ -151,7 +151,7 @@ def _groups(text: str) -> list[tuple[str, str]]:
 
 
 def phonemize_mixed(
-    text: str, model: str | Path | None = None, language: str | None = None
+    text: str, model: str | Path | None = None, language: str | None = DEFAULT_LANGUAGE
 ) -> str:
     """Turn everyday mixed text into what a multiformat adapter expects.
 
@@ -162,9 +162,9 @@ def phonemize_mixed(
     * Hebrew carrying nikud is already unambiguous, so it is kept exactly as
       written and tokenized as atomic Hebrew and nikud characters;
     * unvocalized Hebrew goes through renikud, which needs `model`;
-    * Latin script is left as written, which the tokenizer sends through
-      SentencePiece like any other text. Pass `language` to run it through
-      espeak instead.
+    * Latin script goes through espeak, so an English word inside a Hebrew
+      sentence is spoken rather than spelled. Pass `language=None` to leave it
+      as written instead.
 
     ```python
     phonemize_mixed("אני עובד עם Google כל יום", model="renikud.onnx")

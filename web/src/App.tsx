@@ -71,7 +71,10 @@ const STAGE_LABEL: Record<Stage, string> = {
   model: "Downloading the voice model",
   g2p: "Downloading the Hebrew phonemizer",
   encoder: "Downloading the voice encoder",
+  espeak: "Downloading the English phonemizer",
 };
+
+const LATIN = /\p{Script=Latin}/u;
 
 const RTL = /[\u0590-\u05FF]/;
 
@@ -151,11 +154,17 @@ export function App() {
           setProgress(next);
         });
         // Hebrew that already carries nikud, and anything in double brackets,
-        // is left alone; only unvocalized Hebrew needs the phonemizer. Latin
-        // words go through the tokenizer as ordinary text.
+        // is left alone; only unvocalized Hebrew needs the phonemizer. espeak
+        // is fetched only if the line actually holds a Latin word.
+        const latin = LATIN.test(text)
+          ? await engine.english((next) => {
+              setStage("espeak");
+              setProgress(next);
+            })
+          : async (part: string) => part;
         prompt = await phonemizeMixed(text, {
           hebrew: (part) => g2p.phonemize(part),
-          latin: async (part) => part,
+          latin,
         });
       }
       const phonemes = mode !== "english";

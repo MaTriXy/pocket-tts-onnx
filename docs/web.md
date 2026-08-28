@@ -32,13 +32,15 @@ In production it fetches them from Hugging Face. Point it anywhere else with
 The Hebrew tab takes ordinary text and decides per part what to do with it:
 double brackets hold IPA and are passed through, Hebrew with nikud is kept as
 typed — plain or with the phonikud marks for stress, vocal shva and prefix
-boundaries — unvocalized Hebrew goes through renikud, and Latin words are read
-as text. There is no separate phonemes tab — `[[ʃalˈom]]` anywhere in the line does
+boundaries — unvocalized Hebrew goes through renikud, and Latin words go
+through espeak. There is no separate phonemes tab — `[[ʃalˈom]]` anywhere in the line does
 that job, in either language.
 
-Latin words are left as written rather than run through espeak, which would mean
-shipping an 18 MB wasm build of it to every visitor. The Python package will use
-espeak if you ask it to.
+espeak is an 18 MB wasm build, so it is fetched only when a line actually mixes
+scripts — the same treatment renikud and the voice encoder get. Writing plain
+Hebrew never pays for it. Its output matches the Python package's espeak
+exactly, once the zero-width joiners `--ipa=3` puts inside diphthongs are
+stripped and the punctuation it drops is put back.
 
 ## Cloning a voice
 
@@ -89,6 +91,7 @@ Python it came from:
 | `lib/text.ts` | chunking, prompt prep, mixed IPA tokenizer | every case, exact |
 | `lib/g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
 | `lib/mixed.ts` | routing each part of the text to the right phonemizer | shares its cases with Python |
+| `lib/espeak.ts` | English phonemes, from espeak-ng in wasm | same IPA as Python's espeak |
 | `lib/tts.ts` | the streaming loop and its caches | see below |
 | `lib/recorder.ts` | microphone capture and its level meter | — |
 | `lib/onnxMeta.ts` | ONNX metadata without parsing the graph | — |

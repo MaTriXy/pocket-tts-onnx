@@ -1,0 +1,85 @@
+/**
+ * English text to phonemes, from espeak-ng compiled to wasm.
+ *
+ * The Hebrew adapter reads phonemes, so a Latin word sitting inside a Hebrew
+ * sentence needs the same treatment the Hebrew does. espeak is 18 MB, which is
+ * why it is fetched only when a line actually mixes the two — someone writing
+ * plain Hebrew never pays for it.
+ */
+
+import wasmUrl from "espeak-ng/dist/espeak-ng.wasm?url";
+
+import { fetchAsset, type Progress } from "./assets";
+
+// espeak's --ipa=3 joins the halves of a diphthong with a zero-width joiner.
+const TIE = /‍/g;
+// It also drops punctuation, so the text is split around it and put back after.
+const PUNCTUATION = /([,.!?;:—–-]+)/;
+
+type Espeak = (options: {
+  arguments: string[];
+  wasmBinary?: ArrayBuffer;
+  print?: (line: string) => void;
+  printErr?: (line: string) => void;
+}) => Promise<{ FS: { readFile(path: string, options: { encoding: "utf8" }): string } }>;
+
+let binary: ArrayBuffer | null = null;
+let factory: Espeak | null = null;
+
+export async function loadEspeak(onProgress?: (progress: Progress) => void): Promise<void> {
+  if (binary && factory) return;
+  const [bytes, module] = await Promise.all([
+    fetchAsset(wasmUrl, onProgress, "espeak-ng-1.0.2"),
+    import("espeak-ng"),
+  ]);
+  binary = bytes;
+  factory = (module.default ?? module) as unknown as Espeak;
+}
+
+export function espeakReady(): boolean {
+  return binary !== null && factory !== null;
+}
+
+async function run(text: string, language: string): Promise<string> {
+  if (!binary || !factory) throw new Error("espeak has not been loaded");
+  const espeak = await factory({
+    // A leading dash would be read as a flag rather than as text.
+    arguments: [
+      "--phonout",
+      "out.txt",
+      "--sep=",
+      "-q",
+      "-b=1",
+      "--ipa=3",
+      "-v",
+      language,
+      text.startsWith("-") ? ` ${text}` : text,
+    ],
+    wasmBinary: binary,
+    print: () => {},
+    printErr: () => {},
+  });
+  return espeak.FS.readFile("out.txt", { encoding: "utf8" })
+    .replace(TIE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Stressed IPA for `text`, with its punctuation kept. */
+export async function phonemizeEnglish(text: string, language = "en-us"): Promise<string> {
+  const parts = text.split(PUNCTUATION);
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === "") continue;
+    // Odd indices are the punctuation the split captured; keep them verbatim.
+    if (i % 2 === 1 || !/\p{L}/u.test(part)) {
+      out.push(part);
+      continue;
+    }
+    const lead = part.slice(0, part.length - part.trimStart().length);
+    const trail = part.slice(part.trimEnd().length);
+    out.push(lead + (await run(part.trim(), language)) + trail);
+  }
+  return out.join("");
+}

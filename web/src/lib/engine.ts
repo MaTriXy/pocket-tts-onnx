@@ -8,6 +8,7 @@
  */
 
 import { fetchAsset, fetchJson, type Progress } from "./assets";
+import { loadEspeak, phonemizeEnglish } from "./espeak";
 import { HebrewG2P } from "./g2p";
 import { PocketTTS, type Assets } from "./tts";
 
@@ -27,7 +28,7 @@ export interface Manifest {
   phonemes: boolean;
 }
 
-export type Stage = "model" | "g2p" | "encoder";
+export type Stage = "model" | "g2p" | "encoder" | "espeak";
 
 const G2P_FILE = "renikud.onnx";
 
@@ -68,6 +69,12 @@ export class Engine {
       this.g2p = await HebrewG2P.create(bytes);
     }
     return this.g2p;
+  }
+
+  /** English phonemes, downloaded the first time a line mixes scripts. */
+  async english(onProgress?: (progress: Progress) => void): Promise<(text: string) => Promise<string>> {
+    await loadEspeak(onProgress);
+    return (text) => phonemizeEnglish(text);
   }
 
   /** The voice encoder, downloaded the first time someone clones. */
