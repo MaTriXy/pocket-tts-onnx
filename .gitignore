@@ -1,0 +1,8 @@
+.venv/
+build/
+plans/
+*.onnx
+*.wav
+*.npy
+*.zip
+__pycache__/

@@ -1,0 +1,35 @@
+[project]
+name = "pocket-tts-onnx"
+version = "0.1.0"
+description = "Streaming pocket-tts on onnxruntime, exported to a single self-contained ONNX file"
+readme = "README.md"
+authors = [
+    { name = "thewh1teagle", email = "61390950+thewh1teagle@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "espeakng-loader>=0.2.4",
+    "numpy>=2.5.2",
+    "onnxruntime>=1.29.0",
+    "phonemizer>=3.4.0",
+    "renikud-onnx>=0.1.0",
+    "sentencepiece>=0.2.2",
+]
+
+[project.scripts]
+pocket-tts-onnx-export = "pocket_tts_onnx.export.export:main"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "huggingface-hub>=1.29.0",
+    "onnx>=1.22.0",
+    "pocket-tts>=3.0.2",
+    "safetensors>=0.8.0",
+    "sounddevice>=0.5.6",
+    "soundfile>=0.14.0",
+    "torch>=2.13.0",
+]
