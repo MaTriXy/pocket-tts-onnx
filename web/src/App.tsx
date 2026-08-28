@@ -167,6 +167,14 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // Warm the voice the moment it is chosen rather than on the first take: the
+  // conditioning prompt is half a second of work, and this is idle time.
+  useEffect(() => {
+    if (!engine) return;
+    const selected = voice === cloned?.name && conditioning.current ? conditioning.current : voice;
+    engine.prepare(selected, mode === "hebrew");
+  }, [cloned, engine, mode, voice]);
+
   const togglePause = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;

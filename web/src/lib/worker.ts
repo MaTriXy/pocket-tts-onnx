@@ -32,6 +32,7 @@ export type Request =
   | { id: number; kind: "load"; baseUrl: string }
   | { id: number; kind: "speak"; text: string; voice: string | Float32Array; decodeSteps: number; debug: boolean }
   | { id: number; kind: "clone"; samples: Float32Array }
+  | { id: number; kind: "prepare"; voice: string | Float32Array; phonemes: boolean }
   | { id: number; kind: "cancel" };
 
 export type Response =
@@ -42,6 +43,7 @@ export type Response =
   | { id: number; kind: "frame"; frame: Float32Array }
   | { id: number; kind: "done" }
   | { id: number; kind: "cloned"; name: string; seconds: number }
+  | { id: number; kind: "prepared" }
   | { id: number; kind: "error"; message: string };
 
 export interface DebugPayload {
@@ -155,6 +157,29 @@ async function speak(request: Extract<Request, { kind: "speak" }>): Promise<void
   post({ id, kind: "done" });
 }
 
+/**
+ * Warm a voice while nobody is waiting for it.
+ *
+ * The prompt the voice conditioning becomes is half a second of work, and it is
+ * the same half second whether it happens now or on the first take. Doing it
+ * when the voice is chosen means the take itself only pays for its own text.
+ */
+async function prepare(request: Extract<Request, { kind: "prepare" }>): Promise<void> {
+  if (!tts) return;
+  const voice = request.voice instanceof Float32Array ? (cloned ?? request.voice) : request.voice;
+  await tts.prepareVoice(voice, request.phonemes);
+  if (request.phonemes) {
+    // The Hebrew path also has to fetch renikud and espeak, and both are slower
+    // on the sentence that loads them than on any sentence after; a throwaway
+    // word here is what makes the first Hebrew take cost the same as the tenth.
+    const hebrewG2P = await hebrew(request.id);
+    hebrewG2P.phonemize("\u05e9\u05dc\u05d5\u05dd");
+    await english(request.id);
+    if (espeakReady) await phonemizeEnglish("hello");
+  }
+  post({ id: request.id, kind: "prepared" });
+}
+
 async function clone(request: Extract<Request, { kind: "clone" }>): Promise<void> {
   if (!tts) throw new Error("the model has not been loaded");
   await encoder(request.id);
@@ -178,6 +203,7 @@ self.onmessage = async (event: MessageEvent<Request>) => {
     if (request.kind === "load") await load(request.id, request.baseUrl);
     else if (request.kind === "speak") await speak(request);
     else if (request.kind === "clone") await clone(request);
+    else if (request.kind === "prepare") await prepare(request);
   } catch (cause) {
     post({
       id: request.id,

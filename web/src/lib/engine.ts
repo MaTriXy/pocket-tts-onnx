@@ -130,6 +130,15 @@ export class Engine {
     });
   }
 
+  /** Warm a voice ahead of a take; failures are not worth reporting. */
+  prepare(voice: string | Float32Array, phonemes: boolean): void {
+    const id = this.next++;
+    this.handlers.set(id, (message) => {
+      if (message.kind === "prepared" || message.kind === "error") this.handlers.delete(id);
+    });
+    this.worker.postMessage({ id, kind: "prepare", voice, phonemes } satisfies Request);
+  }
+
   cancel(): void {
     this.worker.postMessage({ id: -1, kind: "cancel" } satisfies Request);
   }

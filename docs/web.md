@@ -152,8 +152,24 @@ better, at four hundred megabytes of download.
 
 ## Speed
 
-Roughly 2× real time in Chrome on an M-series laptop, against 8–10× for the same
-model in Python. onnxruntime-web runs single-threaded here: shared
-memory needs cross-origin isolation headers, and GitHub Pages cannot send them.
-Faster than real time is what streaming needs, so audio starts immediately and
-keeps ahead of playback.
+Roughly 6× real time in Chrome on an M-series laptop, with audio starting
+**under 200 ms** after the click — 70 ms for English, 130 ms for Hebrew, which
+also has to phonemize. Two things buy that.
+
+**Threads.** onnxruntime's wasm build is threaded, but shared memory needs the
+page to be cross-origin isolated, and GitHub Pages sends no headers at all. The
+development server sends `Cross-Origin-Opener-Policy` and
+`Cross-Origin-Embedder-Policy: credentialless` itself; the built site gets there
+through `public/coi.js`, a service worker that adds those headers to every
+response once it controls the page. `credentialless` rather than
+`require-corp`, because the models come from Hugging Face, which sends no CORP
+header of its own. Where isolation fails the runtime falls back to one thread
+and everything still works, slower. Brave answers `hardwareConcurrency` with
+two whatever the machine is, so its answer is ignored.
+
+**Warming the voice.** A voice prompt is half a second of attention before a
+single frame can come out, and it is the same half second whenever it happens.
+`App.tsx` asks the worker to do it the moment a voice or a language is chosen,
+so the take itself only ever pays for its own text. The Hebrew G2P and espeak
+are warmed the same way, which is why the first Hebrew take costs what the
+tenth does.

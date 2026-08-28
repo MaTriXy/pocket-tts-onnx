@@ -56,5 +56,15 @@ export default defineConfig({
     }),
   ],
   build: { target: "es2022", chunkSizeWarningLimit: 1500 },
-  server: { port: 5173 },
+  // onnxruntime's threads need SharedArrayBuffer, which needs the page to be
+  // cross-origin isolated. `credentialless` rather than `require-corp`, so the
+  // models can still be fetched from Hugging Face. GitHub Pages cannot send
+  // headers at all, so the built site gets there through `public/coi.js`.
+  server: {
+    port: 5173,
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    },
+  },
 });

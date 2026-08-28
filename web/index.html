@@ -10,6 +10,11 @@
       content="Kyutai's Pocket TTS running entirely in the browser on onnxruntime-web. Streaming speech, Hebrew and English, voice cloning, nothing leaves your machine."
     />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>" />
+    <!-- Turns on cross-origin isolation where the host cannot send the headers
+         itself, so onnxruntime gets threads: first thing in the head, because a
+         page that has to reload for it should reload before the model download
+         starts. A no-op in development, where the server sends them. -->
+    <script src="./coi.js"></script>
   </head>
   <body>
     <div id="root"></div>

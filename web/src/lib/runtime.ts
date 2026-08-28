@@ -18,8 +18,23 @@ export const MODELS_URL = (() => {
 
 export function configureRuntime(): void {
   ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`;
-  // GitHub Pages cannot send the cross-origin isolation headers that shared
-  // memory needs, so threads are off and SIMD does the work.
-  ort.env.wasm.numThreads = 1;
+  ort.env.wasm.numThreads = threads();
   ort.env.logLevel = "error";
+}
+
+/**
+ * How many threads onnxruntime may use.
+ *
+ * Threads need SharedArrayBuffer, which needs the page to be cross-origin
+ * isolated: real headers in development, the service worker in `coi.js` on
+ * GitHub Pages, which cannot send headers of its own. Without isolation SIMD
+ * does the work alone. Past four the gain is small and the memory is not, and
+ * Brave answers `hardwareConcurrency` with two whatever the machine is, as a
+ * fingerprinting defence, so its answer says nothing about what to ask for.
+ */
+function threads(): number {
+  if (!globalThis.crossOriginIsolated) return 1;
+  const navigation = globalThis.navigator;
+  if (navigation && "brave" in navigation) return 4;
+  return Math.min(4, Math.max(1, (navigation?.hardwareConcurrency ?? 2) - 1));
 }
