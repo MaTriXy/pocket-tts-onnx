@@ -8,8 +8,10 @@ const MODELS = "https://huggingface.co/thewh1teagle/pocket-tts-onnx/resolve/main
 
 /** `?models=` wins, then the build-time setting, then the release. */
 export const MODELS_URL = (() => {
-  const override = new URLSearchParams(location.search).get("models");
-  const configured = import.meta.env.VITE_MODELS_URL as string | undefined;
+  // `||`, not `??`: an unset repository variable reaches the build as an empty
+  // string, which would otherwise be taken as a real base and 404.
+  const override = new URLSearchParams(location.search).get("models") || undefined;
+  const configured = (import.meta.env.VITE_MODELS_URL as string | undefined) || undefined;
   const base = override ?? configured ?? (import.meta.env.DEV ? "/models/" : MODELS);
   return base.endsWith("/") ? base : base + "/";
 })();
