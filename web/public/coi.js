@@ -42,7 +42,13 @@ if (typeof window === "undefined") {
   // document already in front of the reader was served without the headers.
   // One reload per tab, whatever happens: a browser that will not isolate the
   // page should end up on a slower demo, never in a loop.
-  const source = document.currentScript?.src ?? location.href;
+  const note = (what) => {
+    try {
+      sessionStorage.setItem("coi:log", (sessionStorage.getItem("coi:log") ?? "") + what + " ");
+    } catch {
+      // Storage the reader has switched off is not worth an error.
+    }
+  };
   const reload = () => {
     try {
       if (sessionStorage.getItem("coi") === "reloaded") return;
@@ -52,11 +58,21 @@ if (typeof window === "undefined") {
     }
     window.location.reload();
   };
-  navigator.serviceWorker.register(new URL("coi.js", source), { scope: "./" }).then(
+  note("start");
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    note("controllerchange");
+    reload();
+  });
+  navigator.serviceWorker.register(new URL("coi.js", document.currentScript.src), { scope: "./" }).then(
     (registration) => {
-      registration.addEventListener("updatefound", reload);
+      note("registered:" + (registration.active ? "active" : registration.installing ? "installing" : "waiting"));
+      // Already active from an earlier visit, but not yet steering this
+      // document: nothing more will happen on its own, so reload for it.
       if (registration.active && !navigator.serviceWorker.controller) reload();
     },
-    (cause) => console.error("cross-origin isolation is unavailable:", cause),
+    (cause) => {
+      note("failed:" + cause.name);
+      console.error("cross-origin isolation is unavailable:", cause);
+    },
   );
 }
