@@ -85,7 +85,7 @@ export function App() {
     setText(SAMPLES[mode]);
     // The adapter was trained against a Hebrew reference, so Hebrew starts on
     // one when the model carries it.
-    const preferred = mode === "english" ? "alba" : "male1";
+    const preferred = mode === "english" ? "alba" : "omer";
     if (engine?.manifest.voices.includes(preferred) && voice !== cloned?.name) setVoice(preferred);
     // Only a mode change should move the voice, never a later voice pick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
