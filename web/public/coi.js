@@ -42,6 +42,9 @@ if (typeof window === "undefined") {
   // document already in front of the reader was served without the headers.
   // One reload per tab, whatever happens: a browser that will not isolate the
   // page should end up on a slower demo, never in a loop.
+  // GitHub Pages gives no way to read a console, so each step leaves a word in
+  // session storage: `coi:log` is the whole story of why isolation did or did
+  // not happen, readable from the page itself.
   const note = (what) => {
     try {
       sessionStorage.setItem("coi:log", (sessionStorage.getItem("coi:log") ?? "") + what + " ");
