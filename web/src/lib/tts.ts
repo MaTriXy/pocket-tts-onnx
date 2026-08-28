@@ -73,6 +73,11 @@ export interface SpeakOptions {
   signal?: AbortSignal;
 }
 
+interface Prefill {
+  values: Float32Array;
+  length: number;
+}
+
 /** A grow-once buffer whose tail is handed to the graph as the past. */
 class Cache {
   buffer: Float32Array<ArrayBuffer>;
@@ -170,7 +175,8 @@ export class PocketTTS {
   readonly phonemeTokenizer: MixedTokenizer | null;
   private readonly voiceBlobs: Record<string, string>;
   private readonly inputNames: Set<string>;
-  private readonly voiceCache = new Map<string, { values: Float32Array; length: number }>();
+  private readonly namedVoices = new Map<string, Prefill>();
+  private readonly clonedVoices = new Map<Float32Array, Map<number, Prefill>>();
   private encoder: ort.InferenceSession | null = null;
 
   private constructor(
@@ -261,8 +267,7 @@ export class PocketTTS {
     const maxTokens = defaults.max_tokens_per_chunk ?? config.max_tokens_per_chunk;
     const random = new Random(options.seed ?? (Math.random() * 2 ** 32) >>> 0);
 
-    const { cache: voiceCache, length: voiceLength } = this.prefilledVoice(options.voice, gate);
-    const flowKv = voiceCache;
+    const { cache: flowKv, length: voiceLength } = await this.prefilledVoice(options.voice, gate);
 
     const chunks = phonemes
       ? splitPhonemeChunks(tokenizer, options.text, maxTokens)
@@ -379,42 +384,52 @@ export class PocketTTS {
     return new Cache(config.flow_layers * 2 * config.flow_heads * config.flow_head_dim, capacity);
   }
 
+  private cachedPrefill(voice: string | Float32Array, gate: number): Prefill | undefined {
+    if (typeof voice === "string") return this.namedVoices.get(`${voice}:${gate}`);
+    return this.clonedVoices.get(voice)?.get(gate);
+  }
+
+  private rememberPrefill(voice: string | Float32Array, gate: number, prefill: Prefill): void {
+    if (typeof voice === "string") {
+      this.namedVoices.set(`${voice}:${gate}`, prefill);
+      return;
+    }
+    // Cloned voices are arrays, so they are keyed by identity rather than name.
+    let byGate = this.clonedVoices.get(voice);
+    if (!byGate) {
+      byGate = new Map();
+      this.clonedVoices.set(voice, byGate);
+    }
+    byGate.set(gate, prefill);
+  }
+
   /**
    * Flow-LM cache holding just the voice prompt, computed once per voice.
    *
    * The adapter changes the attention weights, so a prefilled voice belongs to
-   * the gate it was computed under.
+   * the gate it was computed under, and a cloned voice is cached by identity.
    */
-  private prefilledVoice(
+  private async prefilledVoice(
     voice: string | Float32Array,
     gate: number,
-  ): { cache: Cache; length: number } {
-    const key = typeof voice === "string" ? `${voice}:${gate}` : null;
-    const cached = key ? this.voiceCache.get(key) : undefined;
-    const cache = this.emptyFlowCache((cached?.length ?? 0) + 256);
-    if (cached) {
-      cache.append(cached.values);
-      return { cache, length: cached.length };
-    }
-    return { cache, length: 0 };
+  ): Promise<{ cache: Cache; length: number }> {
+    let prefill = this.cachedPrefill(voice, gate);
+    if (!prefill) prefill = await this.computePrefill(voice, gate);
+    const cache = this.emptyFlowCache(prefill.length + 256);
+    cache.append(prefill.values);
+    return { cache, length: prefill.length };
   }
 
-  /** The voice prefill has to run through the graph, so it is its own await. */
-  async prepareVoice(voice: string | Float32Array, phonemes = false): Promise<number> {
-    const gate = phonemes ? 1 : 0;
-    const key = typeof voice === "string" ? `${voice}:${gate}` : null;
-    if (key && this.voiceCache.has(key)) return this.voiceCache.get(key)!.length;
-
+  private async computePrefill(voice: string | Float32Array, gate: number): Promise<Prefill> {
     const config = this.config;
     const cond = this.voiceConditioning(voice);
     const frames = cond.length / config.model_dim;
-    const cache = this.emptyFlowCache(frames + 1);
     const outputs = await this.step({
       cond,
       gates: COND_GATE,
       seq: frames,
       noise: new Float32Array(config.latent_dim),
-      flowKv: cache,
+      flowKv: this.emptyFlowCache(frames + 1),
       mimiKv: new Cache(
         config.mimi_layers * 2 * config.mimi_heads * config.mimi_head_dim,
         config.mimi_kv_len,
@@ -424,9 +439,18 @@ export class PocketTTS {
       decodeSteps: config.sampler_decode_steps,
       lora: gate,
     });
-    const values = (outputs.flow_kv_new.data as Float32Array<ArrayBuffer>).slice();
-    if (key) this.voiceCache.set(key, { values, length: frames });
-    return frames;
+    const prefill: Prefill = {
+      values: (outputs.flow_kv_new.data as Float32Array<ArrayBuffer>).slice(),
+      length: frames,
+    };
+    this.rememberPrefill(voice, gate, prefill);
+    return prefill;
+  }
+
+  /** Warm a voice ahead of time; `stream` does it anyway if you skip this. */
+  async prepareVoice(voice: string | Float32Array, phonemes = false): Promise<number> {
+    const gate = phonemes ? 1 : 0;
+    return (this.cachedPrefill(voice, gate) ?? (await this.computePrefill(voice, gate))).length;
   }
 
   private async step(args: {

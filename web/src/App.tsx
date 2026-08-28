@@ -12,16 +12,12 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import {
-  IconArrowRight,
-  IconBrandGithub,
-  IconDownload,
-  IconPlayerStopFilled,
-} from "@tabler/icons-react";
+import { IconArrowRight, IconBrandGithub, IconPlayerStopFilled } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Loader } from "./components/Loader";
+import { Player } from "./components/Player";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
 import type { Progress } from "./lib/assets";
@@ -65,7 +61,7 @@ export function App() {
   const [speaking, setSpeaking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [result, setResult] = useState<Float32Array | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
 
   const conditioning = useRef<Float32Array | null>(null);
   const player = useRef<FramePlayer | null>(null);
@@ -156,7 +152,7 @@ export function App() {
         audio.set(frame, at);
         at += frame.length;
       }
-      setResult(audio);
+      setResult(encodeWav(audio, engine.tts.sampleRate));
       const seconds = total / engine.tts.sampleRate;
       const elapsed = (performance.now() - started) / 1000;
       setStatus(
@@ -263,16 +259,6 @@ export function App() {
 
   useEffect(() => () => recorder.current?.release(), []);
 
-  const download = useCallback(() => {
-    if (!result || !engine) return;
-    const url = URL.createObjectURL(encodeWav(result, engine.tts.sampleRate));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `pocket-tts-${mode}.wav`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [engine, mode, result]);
-
   const modes = useMemo(() => {
     const options = [{ label: "English", value: "english" }];
     if (engine?.hasPhonemes) {
@@ -351,22 +337,15 @@ export function App() {
                       />
                     </Box>
 
-                    <Waveform analyser={analyser} active={speaking} />
+                    {result && !speaking ? (
+                      <Player wav={result} filename={`pocket-tts-${mode}.wav`} />
+                    ) : (
+                      <Waveform analyser={analyser} active={speaking} />
+                    )}
 
                     <Group justify="space-between" align="center">
                       <Text className="mono">{status ?? `${text.trim().length} characters`}</Text>
                       <Group gap={8}>
-                        {result && !speaking && (
-                          <Button
-                            variant="subtle"
-                            color="ink"
-                            size="sm"
-                            leftSection={<IconDownload size={15} />}
-                            onClick={download}
-                          >
-                            wav
-                          </Button>
-                        )}
                         {speaking ? (
                           <Button
                             size="sm"

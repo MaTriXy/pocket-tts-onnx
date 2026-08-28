@@ -35,6 +35,9 @@ to ten seconds. Either way the audio is decoded in the page, resampled to
 runs again during synthesis. The recording is never written anywhere and never
 sent anywhere; the microphone is released the moment you stop.
 
+Streaming plays each frame as it arrives and then lets it go, so the finished
+take is handed to a small player for replay, seeking and download.
+
 ## The asset set
 
 The single-file layout is right for a Python process that opens the model once.
