@@ -53,14 +53,14 @@ const EXAMPLES: Record<Mode, Example[]> = {
     { label: "אנגלית בתוך עברית", text: "אני עובד עם Google ועם Instagram כל יום.", rtl: true },
     {
       label: "ניקוד",
-      text: "הַכּוֹחַ לְשַׁנּוֹת מַתְחִיל בָּרֶגַע שֶׁבּוֹ אַתָּה מַאֲמִין שֶׁזֶּה אֶפְשָׁרִי!",
+      text: "הַיָּם הָיָה שָׁקֵט, וְהַשֶּׁמֶשׁ שָׁקְעָה מֵאֲחוֹרֵי הֶהָרִים.",
       rtl: true,
     },
     {
       // Enhanced nikud adds the phonikud marks on top: a prefix boundary, an
       // ole for stress, and a meteg marking a vocal shva.
       label: "ניקוד משופר",
-      text: "הַ|כּ֫וֹחַ לְֽשַׁנּוֹת מַתְחִיל בָּֽ|רֶ֫גַע שֶׁ|בּוֹ אַתָּה מַאֲמִין שֶׁ|זֶּה אֶפְשָׁרִי!",
+      text: "סֵ֫פֶר טוֹב יָכוֹל לְֽשַׁנּוֹת אֶת הַ|דֶּ֫רֶךְ שֶׁ|בָּהּ אַתָּה חוֹשֵׁב עַל הָ|עוֹלָם.",
       rtl: true,
     },
     { label: "פונמות", text: "המילה [[ʃalˈom]] נשמעת ככה.", rtl: true },

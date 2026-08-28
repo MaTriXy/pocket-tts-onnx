@@ -66,7 +66,9 @@ tts.create(text, voice=cond, phonemes=True)
 | Latin script | phonemes from espeak — pass `language=None` to leave it as written |
 
 Nikud is already unambiguous, which is why it is left alone; unvocalized Hebrew
-is not, which is why it needs a phonemizer. renikud's weights are a separate
+is not, which is why it needs a phonemizer. To add nikud to a line in the first
+place — plain or with the phonikud stress and prefix marks — use
+[phonikud](https://pypi.org/project/phonikud-onnx/). renikud's weights are a separate
 download: pass `model=`, set `$RENIKUD_MODEL`, or let `huggingface_hub` fetch
 them.
 

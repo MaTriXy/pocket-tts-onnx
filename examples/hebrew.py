@@ -35,11 +35,12 @@ LINES = {
     "plain": "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!",
     # Latin words go through espeak, so they are spoken rather than spelled.
     "brands": "אני עובד עם Google ועם Instagram כל יום.",
-    # Nikud is already unambiguous, so it is kept exactly as typed.
-    "nikud": "הַכּוֹחַ לְשַׁנּוֹת מַתְחִיל בָּרֶגַע שֶׁבּוֹ אַתָּה מַאֲמִין שֶׁזֶּה אֶפְשָׁרִי!",
+    # Nikud is already unambiguous, so it is kept exactly as typed. Both of
+    # these were produced by phonikud (https://pypi.org/project/phonikud-onnx).
+    "nikud": "הַיָּם הָיָה שָׁקֵט, וְהַשֶּׁמֶשׁ שָׁקְעָה מֵאֲחוֹרֵי הֶהָרִים.",
     # Enhanced nikud adds the phonikud marks on top: a prefix boundary, an ole
     # for stress, and a meteg marking a vocal shva.
-    "nikud_enhanced": "הַ|כּ֫וֹחַ לְֽשַׁנּוֹת מַתְחִיל בָּֽ|רֶ֫גַע שֶׁ|בּוֹ אַתָּה מַאֲמִין שֶׁ|זֶּה אֶפְשָׁרִי!",
+    "nikud_enhanced": "סֵ֫פֶר טוֹב יָכוֹל לְֽשַׁנּוֹת אֶת הַ|דֶּ֫רֶךְ שֶׁ|בָּהּ אַתָּה חוֹשֵׁב עַל הָ|עוֹלָם.",
     # Double brackets hold IPA, for when you want to fix one word yourself.
     "literal": "המילה [[ʃalˈom]] נשמעת ככה.",
 }

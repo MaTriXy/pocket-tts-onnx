@@ -28,6 +28,7 @@ build-backend = "uv_build"
 dev = [
     "huggingface-hub>=1.29.0",
     "onnx>=1.22.0",
+    "phonikud-onnx>=1.0.6",
     "pocket-tts>=3.0.2",
     "safetensors>=0.8.0",
     "sounddevice>=0.5.6",
