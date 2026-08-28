@@ -252,6 +252,40 @@ export class PocketTTS {
     return output.cond.data as Float32Array<ArrayBuffer>;
   }
 
+  /** How `stream` will split this text, and what the first chunk tokenizes to. */
+  inspect(text: string, phonemes: boolean): { chunks: string[]; tokens: number[] } {
+    const config = this.config;
+    const defaults = phonemes ? (config.lora?.defaults ?? {}) : {};
+    const tokenizer: Tokenizer = phonemes ? this.phonemeTokenizer! : this.sp;
+    const maxTokens = defaults.max_tokens_per_chunk ?? config.max_tokens_per_chunk;
+    const chunks = phonemes
+      ? splitPhonemeChunks(tokenizer, text, maxTokens)
+      : splitIntoBestSentences(
+          this.sp,
+          text,
+          maxTokens,
+          config.pad_with_spaces_for_short_inputs,
+          config.remove_semicolons,
+        );
+    const first = chunks[0] ?? "";
+    const prompt = phonemes
+      ? preparePhonemePrompt(first)
+      : prepareTextPrompt(
+          first,
+          config.pad_with_spaces_for_short_inputs,
+          config.remove_semicolons,
+        ).prompt;
+    return { chunks, tokens: tokenizer.encode(prompt) };
+  }
+
+  /** The text a token id stands for, and whether it is one of the adapter's. */
+  describeToken(id: number): { piece: string; atomic: boolean } {
+    const base = this.config.lora?.vocab_base ?? this.sp.vocabSize;
+    if (id < base) return { piece: this.sp.decode([id]) || "·", atomic: false };
+    const chars = this.config.lora?.atomic_chars ?? this.config.lora?.ipa_chars ?? "";
+    return { piece: [...chars][id - base] ?? "?", atomic: true };
+  }
+
   /** Yield 80 ms mono frames as they are decoded. */
   async *stream(options: SpeakOptions): AsyncGenerator<Float32Array> {
     const config = this.config;

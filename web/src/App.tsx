@@ -12,10 +12,16 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconArrowRight, IconBrandGithub, IconPlayerStopFilled } from "@tabler/icons-react";
+import {
+  IconArrowRight,
+  IconBrandGithub,
+  IconBinaryTree2,
+  IconPlayerStopFilled,
+} from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Debug, type DebugInfo } from "./components/Debug";
 import { Examples, type Example } from "./components/Examples";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
@@ -24,9 +30,8 @@ import { Waveform } from "./components/Waveform";
 import type { Progress } from "./lib/assets";
 import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
 import { Engine, type Stage } from "./lib/engine";
-import { phonemizeMixed } from "./lib/mixed";
 import { Recorder } from "./lib/recorder";
-import { configureRuntime, MODELS_URL } from "./lib/runtime";
+import { MODELS_URL } from "./lib/runtime";
 
 type Mode = "english" | "hebrew";
 
@@ -74,7 +79,11 @@ const STAGE_LABEL: Record<Stage, string> = {
   espeak: "Downloading the English phonemizer",
 };
 
-const LATIN = /\p{Script=Latin}/u;
+// How far ahead of the speakers generation must be before it is safe to stream.
+// Below this a slow phone starves the audio clock and the words come out
+// syllable by syllable, so the take is buffered and played whole instead.
+const STREAM_HEADROOM = 1.25;
+const MEASURE_AFTER = 6; // frames, just under half a second of audio
 
 const RTL = /[\u0590-\u05FF]/;
 
@@ -99,21 +108,39 @@ export function App() {
   const [status, setStatus] = useState<string | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [result, setResult] = useState<Blob | null>(null);
+  const [debug, setDebug] = useState<DebugInfo | null>(null);
+  // The token view is a toggle rather than a URL flag, because it is genuinely
+  // useful for anyone wondering why a line came out the way it did.
+  const [debugging, setDebugging] = useState(() => {
+    if (new URLSearchParams(location.search).has("debug")) return true;
+    try {
+      return localStorage.getItem("pocket-tts-tokens") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("pocket-tts-tokens", debugging ? "1" : "0");
+    } catch {
+      /* private windows have no storage; the toggle still works for this visit */
+    }
+  }, [debugging]);
 
   const conditioning = useRef<Float32Array | null>(null);
-  const player = useRef<FramePlayer | null>(null);
+  const playerRef = useRef<FramePlayer | null>(null);
   const abort = useRef<AbortController | null>(null);
   const recorder = useRef<Recorder | null>(null);
 
   useEffect(() => {
-    configureRuntime();
     Engine.load(MODELS_URL, (nextStage, next) => {
       setStage(nextStage);
       setProgress(next);
     })
       .then((loaded) => {
         setEngine(loaded);
-        setVoice(loaded.manifest.voices.includes("alba") ? "alba" : loaded.manifest.voices[0]);
+        setVoice(loaded.voices.includes("alba") ? "alba" : loaded.voices[0]);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
   }, []);
@@ -123,18 +150,19 @@ export function App() {
     // The adapter was trained against a Hebrew reference, so Hebrew starts on
     // one when the model carries it.
     const preferred = mode === "english" ? "alba" : "omer";
-    if (engine?.manifest.voices.includes(preferred) && voice !== cloned?.name) setVoice(preferred);
+    if (engine?.voices.includes(preferred) && voice !== cloned?.name) setVoice(preferred);
     // Only a mode change should move the voice, never a later voice pick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   const stop = useCallback(() => {
     abort.current?.abort();
-    player.current?.stop();
-    player.current = null;
+    engine?.cancel();
+    playerRef.current?.stop();
+    playerRef.current = null;
     setSpeaking(false);
     setAnalyser(null);
-  }, []);
+  }, [engine]);
 
   const speak = useCallback(async () => {
     if (!engine || speaking || !text.trim()) return;
@@ -143,55 +171,47 @@ export function App() {
     abort.current = controller;
     setSpeaking(true);
     setResult(null);
+    setDebug(null);
     setStatus("preparing");
 
     try {
-      let prompt = text;
-      if (mode === "hebrew") {
-        setStatus("phonemizing");
-        const g2p = await engine.hebrew((next) => {
-          setStage("g2p");
-          setProgress(next);
-        });
-        // Hebrew that already carries nikud, and anything in double brackets,
-        // is left alone; only unvocalized Hebrew needs the phonemizer. espeak
-        // is fetched only if the line actually holds a Latin word.
-        const latin = LATIN.test(text)
-          ? await engine.english((next) => {
-              setStage("espeak");
-              setProgress(next);
-            })
-          : async (part: string) => part;
-        prompt = await phonemizeMixed(text, {
-          hebrew: (part) => g2p.phonemize(part),
-          latin,
-        });
-      }
-      const phonemes = mode !== "english";
       const selected =
         voice === cloned?.name && conditioning.current ? conditioning.current : voice;
 
-      setStatus("warming up");
-      await engine.tts.prepareVoice(selected, phonemes);
-
-      const nextPlayer = new FramePlayer(engine.tts.sampleRate);
-      player.current = nextPlayer;
-      setAnalyser(await nextPlayer.start());
-
       const started = performance.now();
       const frames: Float32Array[] = [];
-      for await (const frame of engine.tts.stream({
-        text: prompt,
-        voice: selected,
-        phonemes,
+      let player: FramePlayer | null = null;
+
+      for await (const frame of engine.speak(text, selected, {
         decodeSteps: 2,
-        signal: controller.signal,
+        debug: debugging,
+        onStatus: setStatus,
+        onDebug: setDebug,
+        onProgress: (nextStage, next) => {
+          setStage(nextStage);
+          setProgress(next);
+        },
       })) {
-        if (!frames.length) {
-          setStatus(`first audio in ${Math.round(performance.now() - started)} ms`);
-        }
+        if (controller.signal.aborted) break;
         frames.push(frame);
-        nextPlayer.push(frame as Float32Array<ArrayBuffer>);
+
+        // Wait a few frames, then decide: stream if generation is comfortably
+        // ahead of playback, otherwise let it finish and play the whole thing.
+        if (!player && frames.length === MEASURE_AFTER) {
+          const produced = (frames.length * frame.length) / engine.sampleRate;
+          const elapsed = (performance.now() - started) / 1000;
+          if (produced / elapsed >= STREAM_HEADROOM) {
+            player = new FramePlayer(engine.sampleRate);
+            playerRef.current = player;
+            setAnalyser(await player.start());
+            for (const queued of frames) player.push(queued as Float32Array<ArrayBuffer>);
+            setStatus(`first audio in ${Math.round(performance.now() - started)} ms`);
+          } else {
+            setStatus("this device is slower than real time — playing when it is done");
+          }
+        } else if (player) {
+          player.push(frame as Float32Array<ArrayBuffer>);
+        }
       }
 
       const total = frames.reduce((sum, frame) => sum + frame.length, 0);
@@ -201,8 +221,15 @@ export function App() {
         audio.set(frame, at);
         at += frame.length;
       }
-      setResult(encodeWav(audio, engine.tts.sampleRate));
-      const seconds = total / engine.tts.sampleRate;
+      const wav = encodeWav(audio, engine.sampleRate);
+      setResult(wav);
+      if (!player && !controller.signal.aborted) {
+        // Nothing was streamed, so hand the finished take to the player.
+        const element = new Audio(URL.createObjectURL(wav));
+        void element.play().catch(() => {});
+      }
+
+      const seconds = total / engine.sampleRate;
       const elapsed = (performance.now() - started) / 1000;
       setStatus(
         `${seconds.toFixed(1)}s of audio in ${elapsed.toFixed(1)}s — ${(seconds / elapsed).toFixed(1)}× real time`,
@@ -215,15 +242,20 @@ export function App() {
       setSpeaking(false);
       abort.current = null;
     }
-  }, [cloned, engine, mode, speaking, stop, text, voice]);
+  }, [cloned, debugging, engine, speaking, stop, text, voice]);
 
   const adopt = useCallback(
     async (samples: Float32Array, sampleRate: number, name: string) => {
       if (!engine) return;
       setVoiceStatus("encoding");
-      const mono = resample(samples, sampleRate, engine.tts.sampleRate);
-      conditioning.current = await engine.tts.cloneVoice(mono);
-      setCloned({ name, seconds: Math.min(mono.length / engine.tts.sampleRate, 20) });
+      const mono = resample(samples, sampleRate, engine.sampleRate);
+      const { seconds } = await engine.clone(mono, (nextStage, next) => {
+        setStage(nextStage);
+        setProgress(next);
+      });
+      // The worker holds the conditioning; this marks the voice as the cloned one.
+      conditioning.current = new Float32Array(0);
+      setCloned({ name, seconds });
       setVoice(name);
       setVoiceStatus(null);
     },
@@ -235,11 +267,7 @@ export function App() {
       if (!engine) return;
       setBusy(true);
       try {
-        setVoiceStatus("loading the encoder");
-        await engine.enableCloning((next) => {
-          setStage("encoder");
-          setProgress(next);
-        });
+        setVoiceStatus("reading the file");
         const { samples, sampleRate } = await decodeAudioFile(file);
         await adopt(samples, sampleRate, file.name.replace(/\.[^.]+$/, "").slice(0, 18) || "cloned");
       } catch (cause) {
@@ -255,11 +283,6 @@ export function App() {
     if (!engine) return;
     setBusy(true);
     try {
-      setVoiceStatus("loading the encoder");
-      await engine.enableCloning((next) => {
-        setStage("encoder");
-        setProgress(next);
-      });
       const next = new Recorder();
       await next.start();
       recorder.current = next;
@@ -369,7 +392,21 @@ export function App() {
                         radius="xl"
                         size="xs"
                       />
-                      <Text className="mono">{mode === "hebrew" ? "עברית" : "text"}</Text>
+                      <Group gap={6}>
+                        <Text className="mono">{mode === "hebrew" ? "עברית" : "text"}</Text>
+                        <Tooltip label="Show how the text is tokenized" withArrow>
+                          <ActionIcon
+                            variant={debugging ? "light" : "subtle"}
+                            color={debugging ? "accent" : "gray"}
+                            size="sm"
+                            radius="xl"
+                            onClick={() => setDebugging((on) => !on)}
+                            aria-label="Toggle the token view"
+                          >
+                            <IconBinaryTree2 size={15} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
                     </Group>
 
                     <Box className={`composer ${rtl ? "rtl" : ""}`}>
@@ -388,6 +425,8 @@ export function App() {
                       examples={EXAMPLES[mode]}
                       onPick={(example) => setText(example.text)}
                     />
+
+                    {debugging && <Debug info={debug} />}
 
                     {result && !speaking ? (
                       <Player wav={result} filename={`pocket-tts-${mode}.wav`} />
@@ -424,7 +463,7 @@ export function App() {
                 </Box>
 
                 <VoicePanel
-                  voices={engine.manifest.voices}
+                  voices={engine.voices}
                   cloned={cloned}
                   selected={voice}
                   onSelect={setVoice}

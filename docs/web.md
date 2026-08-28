@@ -27,6 +27,20 @@ cp renikud.onnx web/models/
 In production it fetches them from Hugging Face. Point it anywhere else with
 `?models=<url>` or by setting `VITE_MODELS_URL` at build time.
 
+## Everything runs in a worker
+
+onnxruntime-web executes its wasm synchronously on whichever thread calls it, so
+running the model on the page blocked React and starved the audio clock. The
+symptom was a status line frozen mid-generation on a fast machine, and playback
+arriving syllable by syllable on a slow one. The model, both phonemizers and the
+voice encoder now live in `lib/worker.ts`; the page only ever receives finished
+frames.
+
+That fixes the freeze but not slow hardware. After the first half-second of
+audio the app compares how fast frames are arriving against how fast they will
+be played: comfortably ahead, and it streams; behind, and it says so and plays
+the take once it is complete, rather than dribbling it out with gaps.
+
 ## Input formats
 
 The Hebrew tab takes ordinary text and decides per part what to do with it:
@@ -52,6 +66,11 @@ sent anywhere; the microphone is released the moment you stop.
 
 Streaming plays each frame as it arrives and then lets it go, so the finished
 take is handed to a small player for replay, seeking and download.
+
+The token view — the toggle beside the composer's format label — shows the text
+after phonemization and the tokens it became, with the adapter's atomic
+characters marked apart from the SentencePiece pieces. It is the quickest way to
+see why a line came out the way it did.
 
 ## The asset set
 
@@ -92,6 +111,7 @@ Python it came from:
 | `lib/g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
 | `lib/mixed.ts` | routing each part of the text to the right phonemizer | shares its cases with Python |
 | `lib/espeak.ts` | English phonemes, from espeak-ng in wasm | same IPA as Python's espeak |
+| `lib/worker.ts` | all of the above, off the main thread | — |
 | `lib/tts.ts` | the streaming loop and its caches | see below |
 | `lib/recorder.ts` | microphone capture and its level meter | — |
 | `lib/onnxMeta.ts` | ONNX metadata without parsing the graph | — |
@@ -114,8 +134,8 @@ show up in.
 
 ## Speed
 
-Roughly 2.1–2.4× real time in Chrome on an M-series laptop, against 8–10× for
-the same model in Python. onnxruntime-web runs single-threaded here: shared
+Roughly 2× real time in Chrome on an M-series laptop, against 8–10× for the same
+model in Python. onnxruntime-web runs single-threaded here: shared
 memory needs cross-origin isolation headers, and GitHub Pages cannot send them.
 Faster than real time is what streaming needs, so audio starts immediately and
 keeps ahead of playback.

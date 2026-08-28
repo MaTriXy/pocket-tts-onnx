@@ -1,86 +1,136 @@
 /**
- * Everything the page needs from the models, behind one object.
+ * The page's side of the worker.
  *
- * Loading is staged deliberately: the step graph first, because nothing works
- * without it; the Hebrew G2P and the voice encoder only when someone asks for
- * Hebrew or drops a file. On a slow connection that is the difference between
- * waiting for 176 MB and waiting for 236 MB.
+ * Everything heavy — the model, the phonemizers, the voice encoder — lives in
+ * `worker.ts`. This turns that into promises and an async iterator, so the page
+ * never blocks and audio frames arrive while the main thread is free to play
+ * them.
  */
 
-import { fetchAsset, fetchJson, type Progress } from "./assets";
-import { loadEspeak, phonemizeEnglish } from "./espeak";
-import { HebrewG2P } from "./g2p";
-import { PocketTTS, type Assets } from "./tts";
+import type { Progress } from "./assets";
+import type { DebugPayload, Manifest, Request, Response, Stage } from "./worker";
 
-interface Asset {
-  file: string;
-  bytes: number;
-  sha256?: string;
+export type { DebugPayload, Manifest, Stage };
+
+export interface SpeakEvents {
+  onStatus?: (status: string) => void;
+  onProgress?: (stage: Stage, progress: Progress) => void;
+  onDebug?: (debug: DebugPayload) => void;
 }
 
-export interface Manifest {
-  version: number;
-  model: Asset;
-  encoder: Asset | null;
-  assets: Asset;
-  sampleRate: number;
-  voices: string[];
-  phonemes: boolean;
-}
-
-export type Stage = "model" | "g2p" | "encoder" | "espeak";
-
-const G2P_FILE = "renikud.onnx";
+type Handler = (message: Response) => void;
 
 export class Engine {
-  private g2p: HebrewG2P | null = null;
+  private next = 1;
+  private readonly handlers = new Map<number, Handler>();
 
   private constructor(
-    readonly tts: PocketTTS,
+    private readonly worker: Worker,
     readonly manifest: Manifest,
-    private readonly baseUrl: string,
-  ) {}
+    readonly hasPhonemes: boolean,
+  ) {
+    worker.onmessage = (event: MessageEvent<Response>) => {
+      this.handlers.get(event.data.id)?.(event.data);
+    };
+  }
 
   static async load(
     baseUrl: string,
     onProgress: (stage: Stage, progress: Progress) => void,
   ): Promise<Engine> {
-    const manifest = await fetchJson<Manifest>(baseUrl + "manifest.json");
-    const [assets, model] = await Promise.all([
-      fetchJson<Assets>(baseUrl + manifest.assets.file),
-      fetchAsset(
-        baseUrl + manifest.model.file,
-        (progress) => onProgress("model", progress),
-        manifest.model.sha256,
-      ),
-    ]);
-    const tts = await PocketTTS.create(model, assets);
-    return new Engine(tts, manifest, baseUrl);
+    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+    return new Promise((resolve, reject) => {
+      const id = 0;
+      worker.onmessage = (event: MessageEvent<Response>) => {
+        const message = event.data;
+        if (message.kind === "progress") onProgress(message.stage, message.progress);
+        else if (message.kind === "ready") {
+          resolve(new Engine(worker, message.manifest, message.hasPhonemes));
+        } else if (message.kind === "error") reject(new Error(message.message));
+      };
+      worker.onerror = (event) => reject(new Error(event.message || "the worker failed to start"));
+      worker.postMessage({ id, kind: "load", baseUrl } satisfies Request);
+    });
   }
 
-  get hasPhonemes(): boolean {
-    return this.tts.phonemeTokenizer !== null;
+  get sampleRate(): number {
+    return this.manifest.sampleRate;
   }
 
-  /** The Hebrew G2P, downloaded the first time Hebrew is used. */
-  async hebrew(onProgress?: (progress: Progress) => void): Promise<HebrewG2P> {
-    if (!this.g2p) {
-      const bytes = await fetchAsset(this.baseUrl + G2P_FILE, onProgress);
-      this.g2p = await HebrewG2P.create(bytes);
+  get voices(): string[] {
+    return this.manifest.voices;
+  }
+
+  /** Yield 80 ms frames as the worker decodes them. */
+  async *speak(
+    text: string,
+    voice: string | Float32Array,
+    options: { decodeSteps?: number; debug?: boolean } & SpeakEvents = {},
+  ): AsyncGenerator<Float32Array> {
+    const id = this.next++;
+    const queue: Float32Array[] = [];
+    let done = false;
+    let failure: Error | null = null;
+    let wake: (() => void) | null = null;
+
+    this.handlers.set(id, (message) => {
+      if (message.kind === "frame") queue.push(message.frame);
+      else if (message.kind === "status") options.onStatus?.(message.status);
+      else if (message.kind === "progress") options.onProgress?.(message.stage, message.progress);
+      else if (message.kind === "debug") options.onDebug?.(message.debug);
+      else if (message.kind === "done") done = true;
+      else if (message.kind === "error") {
+        failure = new Error(message.message);
+        done = true;
+      }
+      wake?.();
+    });
+
+    this.worker.postMessage({
+      id,
+      kind: "speak",
+      text,
+      voice,
+      decodeSteps: options.decodeSteps ?? 2,
+      debug: options.debug ?? false,
+    } satisfies Request);
+
+    try {
+      for (;;) {
+        while (queue.length) yield queue.shift()!;
+        if (failure) throw failure;
+        if (done) return;
+        await new Promise<void>((resolve) => (wake = resolve));
+        wake = null;
+      }
+    } finally {
+      this.handlers.delete(id);
     }
-    return this.g2p;
   }
 
-  /** English phonemes, downloaded the first time a line mixes scripts. */
-  async english(onProgress?: (progress: Progress) => void): Promise<(text: string) => Promise<string>> {
-    await loadEspeak(onProgress);
-    return (text) => phonemizeEnglish(text);
+  /** Encode a voice prompt; the worker keeps it and uses it for later calls. */
+  async clone(
+    samples: Float32Array,
+    onProgress?: (stage: Stage, progress: Progress) => void,
+  ): Promise<{ seconds: number }> {
+    const id = this.next++;
+    return new Promise((resolve, reject) => {
+      this.handlers.set(id, (message) => {
+        if (message.kind === "progress") onProgress?.(message.stage, message.progress);
+        else if (message.kind === "cloned") {
+          this.handlers.delete(id);
+          resolve({ seconds: message.seconds });
+        } else if (message.kind === "error") {
+          this.handlers.delete(id);
+          reject(new Error(message.message));
+        }
+      });
+      const copy = samples.slice();
+      this.worker.postMessage({ id, kind: "clone", samples: copy } satisfies Request, [copy.buffer]);
+    });
   }
 
-  /** The voice encoder, downloaded the first time someone clones. */
-  async enableCloning(onProgress?: (progress: Progress) => void): Promise<void> {
-    if (this.tts.canClone || !this.manifest.encoder) return;
-    const bytes = await fetchAsset(this.baseUrl + this.manifest.encoder.file, onProgress);
-    await this.tts.loadEncoder(bytes);
+  cancel(): void {
+    this.worker.postMessage({ id: -1, kind: "cancel" } satisfies Request);
   }
 }
