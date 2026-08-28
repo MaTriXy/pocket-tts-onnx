@@ -74,3 +74,14 @@ cost nothing when off, Hebrew with automatic niqqud, and int8 export.
   int8, and what was measured against upstream
 * [Exporting](docs/export.md) — building your own `.onnx`
 * [The web demo](docs/web.md) — running it all in the browser
+
+## License
+
+[CC BY 4.0](LICENSE) — use it commercially, modify it, build on it; just credit
+this project.
+
+The model weights are Kyutai's, under the same licence, and the base model is
+gated on Hugging Face. Two runtime pieces are GPL rather than CC: espeak-ng,
+which the web app fetches for English phonemes, and `phonemizer`, which the
+Python package uses for the same job. Neither is needed for Hebrew or for plain
+English text.

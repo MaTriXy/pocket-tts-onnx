@@ -6,6 +6,8 @@ readme = "README.md"
 authors = [
     { name = "thewh1teagle", email = "61390950+thewh1teagle@users.noreply.github.com" }
 ]
+license = "CC-BY-4.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "espeakng-loader>=0.2.4",
