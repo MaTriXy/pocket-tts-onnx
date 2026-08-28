@@ -47,8 +47,8 @@ export function Waveform({ analyser, active }: { analyser: AnalyserNode | null; 
         const barHeight = Math.max(2, levels[i] * height);
         const x = i * (barWidth + gap);
         const y = (height - barHeight) / 2;
-        const alpha = 0.25 + levels[i] * 0.75;
-        context.fillStyle = `rgba(126, 142, 240, ${alpha})`;
+        const alpha = 0.16 + levels[i] * 0.84;
+        context.fillStyle = `rgba(91, 100, 216, ${alpha})`;
         context.beginPath();
         context.roundRect(x, y, barWidth, barHeight, barWidth / 2);
         context.fill();
@@ -59,5 +59,5 @@ export function Waveform({ analyser, active }: { analyser: AnalyserNode | null; 
     return () => cancelAnimationFrame(frame);
   }, [analyser, active]);
 
-  return <canvas ref={canvasRef} style={{ width: "100%", height: 72, display: "block" }} />;
+  return <canvas ref={canvasRef} style={{ width: "100%", height: 56, display: "block" }} />;
 }

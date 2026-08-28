@@ -27,6 +27,14 @@ cp renikud.onnx web/models/
 In production it fetches them from Hugging Face. Point it anywhere else with
 `?models=<url>` or by setting `VITE_MODELS_URL` at build time.
 
+## Cloning a voice
+
+Two ways in, both local: drop an audio file, or press Record and speak for five
+to ten seconds. Either way the audio is decoded in the page, resampled to
+24 kHz, and encoded once into conditioning the model reuses — the encoder never
+runs again during synthesis. The recording is never written anywhere and never
+sent anywhere; the microphone is released the moment you stop.
+
 ## The asset set
 
 The single-file layout is right for a Python process that opens the model once.
@@ -65,6 +73,7 @@ Python it came from:
 | `lib/text.ts` | chunking, prompt prep, mixed IPA tokenizer | every case, exact |
 | `lib/g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
 | `lib/tts.ts` | the streaming loop and its caches | see below |
+| `lib/recorder.ts` | microphone capture and its level meter | — |
 | `lib/onnxMeta.ts` | ONNX metadata without parsing the graph | — |
 
 `lib/onnxMeta.ts` exists because onnxruntime-web exposes input and output names

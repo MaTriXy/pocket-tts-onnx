@@ -1,11 +1,18 @@
 :root {
-  --page: #08090c;
-  --panel: rgba(255, 255, 255, 0.035);
-  --panel-strong: rgba(255, 255, 255, 0.06);
-  --line: rgba(255, 255, 255, 0.08);
-  --ink: #f2f3f7;
-  --ink-dim: #8c93a5;
-  --glow: 90, 108, 220;
+  color-scheme: light;
+
+  --paper: #ffffff;
+  --page: #fbfbfa;
+  --ink: #0d0d0c;
+  --ink-soft: #6b6b66;
+  --ink-faint: #a1a19c;
+  --line: #e9e9e7;
+  --line-soft: #f1f1ef;
+  --accent: #5b64d8;
+
+  --shadow-sm: 0 1px 2px rgba(16, 16, 15, 0.04);
+  --shadow-md: 0 1px 3px rgba(16, 16, 15, 0.05), 0 8px 24px -12px rgba(16, 16, 15, 0.12);
+  --shadow-lg: 0 1px 3px rgba(16, 16, 15, 0.06), 0 20px 48px -24px rgba(16, 16, 15, 0.18);
 }
 
 * {
@@ -24,22 +31,17 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
 }
 
-/* One slow-moving light source, so the page has depth without decoration. */
+/* A barely-there wash so the page is not a flat sheet of white. */
 body::before {
   content: "";
   position: fixed;
-  inset: -30% -10% auto -10%;
-  height: 70vh;
-  background: radial-gradient(
-      60% 60% at 30% 0%,
-      rgba(var(--glow), 0.22) 0%,
-      transparent 70%
-    ),
-    radial-gradient(50% 50% at 80% 10%, rgba(150, 90, 220, 0.14) 0%, transparent 70%);
-  filter: blur(20px);
+  inset: 0 0 auto 0;
+  height: 420px;
+  background:
+    radial-gradient(70% 100% at 20% 0%, rgba(91, 100, 216, 0.07) 0%, transparent 65%),
+    radial-gradient(60% 100% at 85% 0%, rgba(216, 91, 160, 0.05) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -47,34 +49,48 @@ body::before {
 .shell {
   position: relative;
   z-index: 1;
-  max-width: 940px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 56px 20px 96px;
+  padding: 72px 24px 120px;
 }
 
-.panel {
-  background: var(--panel);
+.card {
+  background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 20px;
-  backdrop-filter: blur(14px);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
 }
 
-.panel-strong {
-  background: var(--panel-strong);
+.card-quiet {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 .mono {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-variant-ligatures: none;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: var(--ink-faint);
+}
+
+.wordmark {
+  letter-spacing: -0.03em;
 }
 
 .composer textarea {
   background: transparent !important;
   border: none !important;
-  font-size: 17px;
-  line-height: 1.6;
+  color: var(--ink) !important;
+  font-size: 18px;
+  line-height: 1.65;
   padding: 0 !important;
   resize: none;
+}
+
+.composer textarea::placeholder {
+  color: var(--ink-faint);
 }
 
 .composer textarea:focus {
@@ -86,34 +102,52 @@ body::before {
   text-align: right;
 }
 
-.voice-card {
+.voice-chip {
   cursor: pointer;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    transform 140ms ease;
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
 }
 
-.voice-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(var(--glow), 0.45);
+.voice-chip:hover {
+  border-color: var(--ink-faint);
+  box-shadow: var(--shadow-sm);
 }
 
-.voice-card[data-active="true"] {
-  border-color: rgba(var(--glow), 0.9);
-  background: rgba(var(--glow), 0.12);
+.voice-chip[data-active="true"] {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
 }
 
-.dropzone-idle {
-  border: 1px dashed var(--line);
-  transition: border-color 140ms ease, background 140ms ease;
+.dropzone {
+  background: var(--paper);
+  border: 1px dashed var(--line) !important;
+  border-radius: 12px;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
-.dropzone-idle:hover {
-  border-color: rgba(var(--glow), 0.6);
-  background: rgba(var(--glow), 0.06);
+.dropzone:hover {
+  border-color: var(--ink-faint) !important;
+  background: var(--line-soft);
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5484d;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
 }
 
 ::selection {
-  background: rgba(var(--glow), 0.35);
+  background: rgba(91, 100, 216, 0.18);
 }
