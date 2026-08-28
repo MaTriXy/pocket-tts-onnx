@@ -36,10 +36,11 @@ arriving syllable by syllable on a slow one. The model, both phonemizers and the
 voice encoder now live in `lib/worker.ts`; the page only ever receives finished
 frames.
 
-That fixes the freeze but not slow hardware. After the first half-second of
-audio the app compares how fast frames are arriving against how fast they will
-be played: comfortably ahead, and it streams; behind, and it says so and plays
-the take once it is complete, rather than dribbling it out with gaps.
+That fixes the freeze but not slow hardware, so the player rebuffers rather than
+stutters. It banks about 0.7 seconds before it starts, plays that out, and if
+the lead runs down it holds the next frames and banks again — one clean pause,
+the way a video player pauses, instead of a gap between every 80 ms frame. It
+always streams; it never waits for the whole take.
 
 ## Input formats
 

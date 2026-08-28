@@ -81,19 +81,30 @@ export async function decodeAudioFile(
 }
 
 /**
- * Plays frames the moment they arrive.
+ * Plays frames as they arrive, and rebuffers instead of stuttering.
  *
- * Each frame is scheduled against a running cursor rather than played on
- * arrival, so frames that arrive early queue seamlessly and the stream never
- * develops gaps between them.
+ * Generation can be slower than playback on a modest device. Scheduling each
+ * frame the moment it lands would then leave a gap between every one of them,
+ * which is heard as syllables rather than speech. So frames are held until
+ * there is a comfortable lead, played out, and held again if that lead runs
+ * down — one clean pause instead of a hundred small ones.
  */
+const TARGET_LEAD = 0.7; // seconds of audio to bank before playing
+const MIN_LEAD = 0.1; // below this, stop scheduling and bank again
+
 export class FramePlayer {
   private context: AudioContext | null = null;
-  private cursor = 0;
-  private readonly sources = new Set<AudioBufferSourceNode>();
   private analyser: AnalyserNode | null = null;
+  private readonly sources = new Set<AudioBufferSourceNode>();
+  private readonly queue: Float32Array<ArrayBuffer>[] = [];
+  private cursor = 0;
+  private playing = false;
+  private finished = false;
 
-  constructor(private readonly sampleRate: number) {}
+  constructor(
+    private readonly sampleRate: number,
+    private readonly onBuffering?: (buffering: boolean) => void,
+  ) {}
 
   async start(): Promise<AnalyserNode> {
     this.stop();
@@ -105,25 +116,65 @@ export class FramePlayer {
     analyser.connect(context.destination);
     this.context = context;
     this.analyser = analyser;
-    // A beat of headroom so the first frames queue instead of racing playback.
-    this.cursor = context.currentTime + 0.06;
+    this.cursor = context.currentTime;
+    this.playing = false;
+    this.finished = false;
     return analyser;
   }
 
   push(frame: Float32Array<ArrayBuffer>): void {
+    this.queue.push(frame);
+    this.pump();
+  }
+
+  /** No more frames are coming: play out whatever is left. */
+  finish(): void {
+    this.finished = true;
+    this.pump();
+  }
+
+  private pump(): void {
     const context = this.context;
     const analyser = this.analyser;
     if (!context || !analyser) return;
-    const buffer = context.createBuffer(1, frame.length, this.sampleRate);
-    buffer.copyToChannel(frame, 0);
-    const source = context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(analyser);
-    const at = Math.max(this.cursor, context.currentTime);
-    source.start(at);
-    this.cursor = at + buffer.duration;
-    this.sources.add(source);
-    source.onended = () => this.sources.delete(source);
+
+    const now = context.currentTime;
+    if (this.cursor < now) this.cursor = now; // playback caught up with us
+    const banked = this.cursor - now + (this.queue.length * this.frameSeconds);
+
+    if (!this.playing) {
+      if (banked < TARGET_LEAD && !this.finished) {
+        this.onBuffering?.(true);
+        return;
+      }
+      this.playing = true;
+      this.onBuffering?.(false);
+      this.cursor = Math.max(this.cursor, now + 0.03);
+    }
+
+    while (this.queue.length) {
+      const frame = this.queue.shift()!;
+      const buffer = context.createBuffer(1, frame.length, this.sampleRate);
+      buffer.copyToChannel(frame, 0);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(analyser);
+      source.start(this.cursor);
+      this.cursor += buffer.duration;
+      this.sources.add(source);
+      source.onended = () => this.sources.delete(source);
+    }
+
+    // Thin on lead and still generating: hold the next frames rather than
+    // scheduling them one gap at a time.
+    if (!this.finished && this.cursor - context.currentTime < MIN_LEAD) {
+      this.playing = false;
+      this.onBuffering?.(true);
+    }
+  }
+
+  private get frameSeconds(): number {
+    return 1920 / this.sampleRate;
   }
 
   /** Seconds of audio still queued ahead of the playhead. */
@@ -141,9 +192,11 @@ export class FramePlayer {
       }
     }
     this.sources.clear();
+    this.queue.length = 0;
     void this.context?.close();
     this.context = null;
     this.analyser = null;
+    this.playing = false;
   }
 }
 

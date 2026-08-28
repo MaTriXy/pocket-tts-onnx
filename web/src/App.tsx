@@ -79,11 +79,7 @@ const STAGE_LABEL: Record<Stage, string> = {
   espeak: "Downloading the English phonemizer",
 };
 
-// How far ahead of the speakers generation must be before it is safe to stream.
-// Below this a slow phone starves the audio clock and the words come out
-// syllable by syllable, so the take is buffered and played whole instead.
-const STREAM_HEADROOM = 1.25;
-const MEASURE_AFTER = 6; // frames, just under half a second of audio
+
 
 const RTL = /[\u0590-\u05FF]/;
 
@@ -107,6 +103,7 @@ export function App() {
   const [speaking, setSpeaking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [buffering, setBuffering] = useState(false);
   const [result, setResult] = useState<Blob | null>(null);
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   // The token view is a toggle rather than a URL flag, because it is genuinely
@@ -163,6 +160,7 @@ export function App() {
     playerRef.current?.stop();
     playerRef.current = null;
     setSpeaking(false);
+    setBuffering(false);
     setAnalyser(null);
   }, [engine]);
 
@@ -182,7 +180,13 @@ export function App() {
 
       const started = performance.now();
       const frames: Float32Array[] = [];
-      let player: FramePlayer | null = null;
+      // The player banks a lead before it starts and banks again if it runs
+      // down, so a slow device pauses rather than stuttering.
+      const player = new FramePlayer(engine.sampleRate, (waiting) =>
+        setBuffering(frames.length > 0 && waiting),
+      );
+      playerRef.current = player;
+      setAnalyser(await player.start());
 
       for await (const frame of engine.speak(text, selected, {
         decodeSteps: 2,
@@ -195,26 +199,14 @@ export function App() {
         },
       })) {
         if (controller.signal.aborted) break;
-        frames.push(frame);
-
-        // Wait a few frames, then decide: stream if generation is comfortably
-        // ahead of playback, otherwise let it finish and play the whole thing.
-        if (!player && frames.length === MEASURE_AFTER) {
-          const produced = (frames.length * frame.length) / engine.sampleRate;
-          const elapsed = (performance.now() - started) / 1000;
-          if (produced / elapsed >= STREAM_HEADROOM) {
-            player = new FramePlayer(engine.sampleRate);
-            playerRef.current = player;
-            setAnalyser(await player.start());
-            for (const queued of frames) player.push(queued as Float32Array<ArrayBuffer>);
-            setStatus(`first audio in ${Math.round(performance.now() - started)} ms`);
-          } else {
-            setStatus("this device is slower than real time — playing when it is done");
-          }
-        } else if (player) {
-          player.push(frame as Float32Array<ArrayBuffer>);
+        if (!frames.length) {
+          setStatus(`first audio in ${Math.round(performance.now() - started)} ms`);
         }
+        frames.push(frame);
+        player.push(frame as Float32Array<ArrayBuffer>);
       }
+      player.finish();
+      setBuffering(false);
 
       const total = frames.reduce((sum, frame) => sum + frame.length, 0);
       const audio = new Float32Array(total);
@@ -223,13 +215,7 @@ export function App() {
         audio.set(frame, at);
         at += frame.length;
       }
-      const wav = encodeWav(audio, engine.sampleRate);
-      setResult(wav);
-      if (!player && !controller.signal.aborted) {
-        // Nothing was streamed, so hand the finished take to the player.
-        const element = new Audio(URL.createObjectURL(wav));
-        void element.play().catch(() => {});
-      }
+      setResult(encodeWav(audio, engine.sampleRate));
 
       const seconds = total / engine.sampleRate;
       const elapsed = (performance.now() - started) / 1000;
@@ -448,7 +434,11 @@ export function App() {
                     )}
 
                     <Group justify="space-between" align="center">
-                      <Text className="mono">{status ?? `${text.trim().length} characters`}</Text>
+                      <Text className="mono">
+                        {buffering
+                          ? "buffering — this device is slower than real time"
+                          : (status ?? `${text.trim().length} characters`)}
+                      </Text>
                       <Group gap={8}>
                         {speaking ? (
                           <Button
