@@ -167,7 +167,7 @@ def phonemize_mixed(
       as written instead.
 
     ```python
-    phonemize_mixed("אני עובד עם Google כל יום", model="renikud.onnx")
+    phonemize_mixed("אני עובד עם Photoshop כל יום", model="renikud.onnx")
     ```
     """
     out: list[str] = []

@@ -34,7 +34,7 @@ LINES = {
     # Unvocalized Hebrew: renikud guesses the vowels.
     "plain": "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!",
     # Latin words go through espeak, so they are spoken rather than spelled.
-    "brands": "אני עובד עם Google ועם Instagram כל יום.",
+    "brands": "אני עובד עם Photoshop ועם Instagram כל יום.",
     # Nikud is already unambiguous, so it is kept exactly as typed. Both of
     # these were produced by phonikud (https://pypi.org/project/phonikud-onnx).
     "nikud": "הַיָּם הָיָה שָׁקֵט, וְהַשֶּׁמֶשׁ שָׁקְעָה מֵאֲחוֹרֵי הֶהָרִים.",

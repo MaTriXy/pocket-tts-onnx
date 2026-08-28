@@ -54,7 +54,7 @@ can:
 ```python
 from pocket_tts_onnx import phonemize_mixed
 
-text = phonemize_mixed("אני עובד עם Google כל יום.", model="renikud.onnx")
+text = phonemize_mixed("אני עובד עם Photoshop כל יום.", model="renikud.onnx")
 tts.create(text, voice=cond, phonemes=True)
 ```
 
