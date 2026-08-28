@@ -62,6 +62,7 @@ def split_for_web(source: Path, output: Path, base_url: str = "") -> dict:
         "assets": _entry(output / ASSETS_FILE),
         "sampleRate": config["sample_rate"],
         "voices": sorted(assets["voices"]),
+        "voiceLanguages": config.get("voice_languages") or {},
         "phonemes": config.get("lora") is not None,
     }
     (output / MANIFEST_FILE).write_text(json.dumps(manifest, indent=2))

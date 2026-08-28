@@ -13,11 +13,23 @@ Export needs torch and `pocket-tts`, both development dependencies pulled in by
 | flag | what |
 | --- | --- |
 | `--language` | which upstream config to build (default `english`) |
-| `--voices` | voice names to bake in, or `all` (default: six English voices) |
+| `--voices` | voice names or wav paths to bake in, or `all` (default: six English voices) |
 | `--voice-seconds` | how much of each voice prompt to encode (default 20) |
 | `--lora` | a finetune checkpoint (`.pt`) to bundle as an adapter |
 | `--quantize` | int8 weights for the flow LM transformer |
 | `--max-decode-steps` | largest flow decode count the graph can serve (default 4) |
+
+## Naming a voice's language
+
+A voice can be prefixed with the language it was recorded in:
+
+```bash
+--voices en:alba en:michael he:omer.wav he:liat.wav
+```
+
+That lands in the metadata as `voice_languages`, and the web app uses it to show
+only the voices that speak the language you are typing. Voices without a prefix
+are shown everywhere.
 
 ## Why the pipeline is rewritten
 

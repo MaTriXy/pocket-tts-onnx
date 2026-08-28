@@ -147,10 +147,12 @@ export function App() {
 
   useEffect(() => {
     setText(SAMPLES[mode]);
-    // The adapter was trained against a Hebrew reference, so Hebrew starts on
-    // one when the model carries it.
+    // A cloned voice belongs to whoever recorded it, so it survives the switch;
+    // otherwise land on a voice that speaks the language now selected.
+    if (voice === cloned?.name) return;
     const preferred = mode === "english" ? "alba" : "omer";
-    if (engine?.voices.includes(preferred) && voice !== cloned?.name) setVoice(preferred);
+    if (voices.includes(preferred)) setVoice(preferred);
+    else if (voices.length && !voices.includes(voice)) setVoice(voices[0]);
     // Only a mode change should move the voice, never a later voice pick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -339,6 +341,17 @@ export function App() {
 
   const rtl = RTL.test(text);
 
+  // A voice belongs to the language it was recorded in; anything the export did
+  // not label, and anything cloned here, stays available in both.
+  const voices = useMemo(() => {
+    const languages = engine?.manifest.voiceLanguages ?? {};
+    const wanted = mode === "hebrew" ? "he" : "en";
+    const listed = (engine?.voices ?? []).filter(
+      (name) => (languages[name] ?? wanted) === wanted,
+    );
+    return listed.length ? listed : (engine?.voices ?? []);
+  }, [engine, mode]);
+
   return (
     <div className="shell">
       <Stack gap={44}>
@@ -463,7 +476,7 @@ export function App() {
                 </Box>
 
                 <VoicePanel
-                  voices={engine.voices}
+                  voices={voices}
                   cloned={cloned}
                   selected={voice}
                   onSelect={setVoice}

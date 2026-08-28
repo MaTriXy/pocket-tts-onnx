@@ -63,6 +63,7 @@ class _Config:
     gen_seconds_padding: float
     language: str | None
     voices: dict
+    voice_languages: dict | None = None
     lora: dict | None = None
     max_decode_steps: int = 1
     quantized: bool = False

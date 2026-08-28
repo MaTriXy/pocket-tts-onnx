@@ -21,6 +21,8 @@ export interface Manifest {
   assets: { file: string; bytes: number; sha256?: string };
   sampleRate: number;
   voices: string[];
+  /** Which language each voice was recorded in, when the export says. */
+  voiceLanguages?: Record<string, string>;
   phonemes: boolean;
 }
 

@@ -61,6 +61,15 @@ def load_adapter(path: Path) -> dict:
     }
 
 
+def _split_voice(name: str) -> tuple[str, str | None]:
+    """`he:omer.wav` names a voice and the language it belongs to."""
+    if ":" in name and not name.startswith(("http", "hf://")):
+        language, _, rest = name.partition(":")
+        if len(language) <= 5:
+            return rest, language
+    return name, None
+
+
 def _encode_voice(tts_model, source: str, max_seconds: float) -> np.ndarray:
     """Voice conditioning as the flow LM consumes it: [T, d_model], float16."""
     from pocket_tts.data.audio import audio_read
@@ -245,6 +254,7 @@ def build_metadata(
     tts_model,
     step: PocketTTSStep,
     voices: dict[str, np.ndarray],
+    languages: dict[str, str],
     encoder: bytes,
     lora: dict | None,
     quantized: bool = False,
@@ -283,6 +293,7 @@ def build_metadata(
         "language": tts_model.origin.stem if tts_model.origin else None,
         "quantized": quantized,
         "voices": {name: list(array.shape) for name, array in voices.items()},
+        "voice_languages": languages,
     }
     if lora is not None:
         config["lora"] = {
@@ -337,10 +348,15 @@ def export_model(
     if names == ["all"]:
         names = list(_ORIGINS_OF_PREDEFINED_VOICES)
     encoded = {}
-    for name in names:
+    languages: dict[str, str] = {}
+    for entry in names:
+        name, language = _split_voice(entry)
         source = _ORIGINS_OF_PREDEFINED_VOICES.get(name, name)
         logger.info("Encoding voice %s", name)
-        encoded[Path(name).stem] = _encode_voice(tts_model, source, voice_seconds)
+        key = Path(name).stem
+        encoded[key] = _encode_voice(tts_model, source, voice_seconds)
+        if language:
+            languages[key] = language
 
     output.parent.mkdir(parents=True, exist_ok=True)
     args = step.example_inputs(past=5, seq=3)
@@ -387,7 +403,9 @@ def export_model(
             raw.unlink(missing_ok=True)
         model = onnx.load(str(output))
     del model.metadata_props[:]
-    metadata = build_metadata(tts_model, step, encoded, encoder_bytes, adapter, quantize)
+    metadata = build_metadata(
+        tts_model, step, encoded, languages, encoder_bytes, adapter, quantize
+    )
     for key, value in metadata.items():
         entry = model.metadata_props.add()
         entry.key = key

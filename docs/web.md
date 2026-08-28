@@ -19,7 +19,7 @@ with the exporter:
 
 ```bash
 uv run pocket-tts-onnx-export pocket-tts-web.onnx --quantize \
-    --lora adapter/latest.pt --voices omer.wav alba cosette javert
+    --lora adapter/latest.pt --voices he:omer.wav he:liat.wav en:alba en:anna en:michael
 uv run pocket-tts-onnx-web pocket-tts-web.onnx web/models
 cp renikud.onnx web/models/
 ```
