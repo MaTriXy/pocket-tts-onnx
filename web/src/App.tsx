@@ -70,7 +70,7 @@ const EXAMPLES: Record<Mode, Example[]> = {
   ],
   hebrew: [
     { label: "עברית", text: "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!", rtl: true },
-    { label: "עם אנגלית", text: "אני עובד עם Photoshop ועם Instagram כל יום.", rtl: true },
+    { label: "עם אנגלית", text: "אני משתמש ב-Claude Code ועושה vibe coding כל היום.", rtl: true },
     {
       label: "ניקוד",
       text: "הַיָּם הָיָה שָׁקֵט, וְהַשֶּׁמֶשׁ שָׁקְעָה מֵאֲחוֹרֵי הַהָרִים.",
