@@ -2,6 +2,7 @@ import { Box, Button, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/co
 import { Dropzone } from "@mantine/dropzone";
 import { IconMicrophone, IconPlayerStopFilled, IconUpload, IconWaveSine } from "@tabler/icons-react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 export interface ClonedVoice {
   name: string;
@@ -35,18 +36,19 @@ export function VoicePanel({
   busy: boolean;
   status: string | null;
 }) {
+  const { t } = useTranslation();
   const entries = [...voices, ...(cloned ? [cloned.name] : [])];
 
   return (
     <Stack gap="sm">
       <Group justify="space-between" align="baseline">
-        <Text size="sm" fw={600}>
-          Voice
+        <Text size="sm" c="dimmed">
+          {t("voice.intro")}
         </Text>
-        <Text className="mono">{status ?? `${entries.length} available`}</Text>
+        <Text className="mono">{status ?? t("voice.available", { count: entries.length })}</Text>
       </Group>
 
-      <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing={10}>
+      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={10}>
         {entries.map((voice) => (
           <motion.div key={voice} whileTap={{ scale: 0.98 }}>
             <Box
@@ -62,7 +64,7 @@ export function VoicePanel({
                 ) : (
                   <IconMicrophone size={15} color="var(--ink-faint)" />
                 )}
-                <Text size="sm" fw={500} truncate>
+                <Text size="sm" fw={500} truncate tt="capitalize">
                   {voice}
                 </Text>
               </Group>
@@ -80,7 +82,7 @@ export function VoicePanel({
             leftSection={<IconPlayerStopFilled size={14} />}
             style={{ flexShrink: 0 }}
           >
-            Stop · {recordSeconds.toFixed(1)}s
+            {t("voice.stopRecording", { seconds: recordSeconds.toFixed(1) })}
           </Button>
         ) : (
           <Button
@@ -90,7 +92,7 @@ export function VoicePanel({
             leftSection={<IconMicrophone size={16} />}
             style={{ flexShrink: 0 }}
           >
-            Record
+            {t("voice.record")}
           </Button>
         )}
 
@@ -129,21 +131,21 @@ export function VoicePanel({
                   />
                 </Box>
                 <Text size="sm" c="dimmed">
-                  Speak for five to ten seconds
+                  {t("voice.speakFor")}
                 </Text>
               </>
             ) : busy ? (
               <>
                 <Loader size="xs" color="ink" />
                 <Text size="sm" c="dimmed">
-                  {status ?? "working"}
+                  {status ?? t("voice.working")}
                 </Text>
               </>
             ) : (
               <>
                 <IconUpload size={15} color="var(--ink-faint)" />
                 <Text size="sm" c="dimmed">
-                  or drop an audio file to clone a voice
+                  {t("voice.dropHint")}
                 </Text>
               </>
             )}

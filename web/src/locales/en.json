@@ -1,0 +1,101 @@
+{
+  "app": {
+    "badge": "in your browser",
+    "tagline": "Kyutai's speech model on onnxruntime-web, streaming with first audio in about 80 ms. Voice cloning, and nothing leaves your browser.",
+    "github": "Source on GitHub",
+    "modes": {
+      "english": "English",
+      "hebrew": "Hebrew",
+      "none": "No match"
+    },
+    "pickVoice": "Pick or clone a voice",
+    "working": "working",
+    "textLabel": "text",
+    "runFromPython": "Run this from Python",
+    "showCode": "Show the code",
+    "showTokens": "Show how the text is tokenized",
+    "showTokensAria": "Show the tokens",
+    "placeholder": "Say something",
+    "resume": "Resume",
+    "pause": "Pause",
+    "buffering": "buffering, this device is slower than real time",
+    "characters_one": "{{count}} character",
+    "characters_other": "{{count}} characters",
+    "stop": "Stop",
+    "generate": "Generate",
+    "modal": {
+      "code": "Run it yourself",
+      "tokens": "Tokens",
+      "voice": "Voice"
+    },
+    "footer": "Model by <kyutai>Kyutai</kyutai>, Hebrew phonemes by <renikud>renikud</renikud>",
+    "speechLanguage": "Speech language"
+  },
+  "stage": {
+    "model": "Downloading the voice model",
+    "g2p": "Downloading the Hebrew phonemizer",
+    "encoder": "Downloading the voice encoder",
+    "espeak": "Downloading the English phonemizer"
+  },
+  "status": {
+    "preparing": "preparing",
+    "phonemizing": "phonemizing",
+    "warmingUp": "warming up",
+    "firstAudio": "first audio in {{ms}} ms",
+    "done": "{{seconds}}s of audio in {{elapsed}}s, {{speed}}× real time",
+    "encoding": "encoding",
+    "readingFile": "reading the file",
+    "cannotReadFile": "could not read that file",
+    "noMicrophone": "no microphone",
+    "tooShort": "too short, try five seconds or so",
+    "cannotUseRecording": "could not use that recording",
+    "yourVoice": "your voice",
+    "cloned": "cloned"
+  },
+  "loader": {
+    "failed": "Could not load the model",
+    "intro": "The model runs on your machine, so it has to get there first. It is cached after this, and nothing you type ever leaves the page.",
+    "fromCache": "from cache",
+    "ofTotal": "{{loaded}} of {{total}}",
+    "connecting": "connecting",
+    "mb": "{{n}} MB"
+  },
+  "player": {
+    "download": "Download wav"
+  },
+  "code": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "copySnippet": "Copy the snippet"
+  },
+  "debug": {
+    "empty": "Generate something and this is the text as the model received it: the phonemes it was given, and the tokens they became.",
+    "tokens_one": "{{count}} token",
+    "tokens_other": "{{count}} tokens",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks",
+    "tokenId": "id {{id}}"
+  },
+  "examples": {
+    "try": "try"
+  },
+  "snippets": {
+    "install": "Install",
+    "generate": "Generate",
+    "stream": "Stream",
+    "docs": "docs",
+    "noteInstall": "then take a model from the releases and put it beside your script",
+    "noteHebrew": "renikud adds the vowels and is fetched on first use; nikud and IPA pass through as typed",
+    "noteSame": "the same weights this page is running, on onnxruntime alone"
+  },
+  "voice": {
+    "intro": "Pick one, or make your own from a few seconds of audio.",
+    "available_one": "{{count}} available",
+    "available_other": "{{count}} available",
+    "stopRecording": "Stop · {{seconds}}s",
+    "record": "Record",
+    "speakFor": "Speak for five to ten seconds",
+    "working": "working",
+    "dropHint": "or drop an audio file to clone a voice"
+  }
+}

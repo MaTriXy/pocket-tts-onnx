@@ -96,11 +96,21 @@ export class FramePlayer {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private readonly sources = new Set<AudioBufferSourceNode>();
-  private readonly queue: Float32Array<ArrayBuffer>[] = [];
+  // Every frame generated so far, not just the ones waiting to be scheduled:
+  // seeking backwards has to be able to play them again.
+  private readonly frames: Float32Array<ArrayBuffer>[] = [];
+  private totalSamples = 0;
+  private nextFrame = 0;
+  private frameOffset = 0;
+  private playSample = 0;
   private cursor = 0;
   private playing = false;
   private finished = false;
-  private startedAt: number | null = null;
+  // Where the current run of scheduled audio sits on both clocks: the sample at
+  // `sample` is heard at context time `time`. Rebuffering and seeking both
+  // break the straight line between the two, so it is re-anchored rather than
+  // measured from a single start.
+  private origin: { time: number; sample: number } | null = null;
 
   constructor(
     private readonly sampleRate: number,
@@ -120,12 +130,13 @@ export class FramePlayer {
     this.cursor = context.currentTime;
     this.playing = false;
     this.finished = false;
-    this.startedAt = null;
+    this.origin = null;
     return analyser;
   }
 
   push(frame: Float32Array<ArrayBuffer>): void {
-    this.queue.push(frame);
+    this.frames.push(frame);
+    this.totalSamples += frame.length;
     this.pump();
   }
 
@@ -135,14 +146,62 @@ export class FramePlayer {
     this.pump();
   }
 
+  /**
+   * Jump the playhead, including backwards over audio already heard.
+   *
+   * Scheduled sources are dropped and the tail is scheduled again from the new
+   * point, so this works mid-generation: everything generated so far is still
+   * held, and anything still to come lands after it as usual.
+   */
+  seek(seconds: number): void {
+    const context = this.context;
+    if (!context || !this.totalSamples) return;
+
+    const target = Math.max(
+      0,
+      Math.min(this.totalSamples, Math.round(seconds * this.sampleRate)),
+    );
+
+    for (const source of this.sources) {
+      try {
+        source.stop();
+      } catch {
+        // already finished
+      }
+    }
+    this.sources.clear();
+
+    let index = 0;
+    let at = 0;
+    while (index < this.frames.length && at + this.frames[index].length <= target) {
+      at += this.frames[index].length;
+      index++;
+    }
+    this.nextFrame = index;
+    this.frameOffset = target - at;
+    this.playSample = target;
+
+    // A beat of headroom so the first buffer is not scheduled in the past.
+    this.cursor = context.currentTime + 0.03;
+    this.origin = { time: this.cursor, sample: target };
+    // Let pump decide whether to run: seeking back has a full buffer behind it,
+    // seeking to the live edge has nothing and should bank first.
+    this.playing = false;
+    this.pump();
+  }
+
   private pump(): void {
     const context = this.context;
     const analyser = this.analyser;
     if (!context || !analyser) return;
 
     const now = context.currentTime;
-    if (this.cursor < now) this.cursor = now; // playback caught up with us
-    const banked = this.cursor - now + (this.queue.length * this.frameSeconds);
+    if (this.cursor < now) {
+      // Playback caught up with us: the gap is real, so re-anchor across it.
+      this.cursor = now;
+      this.origin = { time: now, sample: this.playSample };
+    }
+    const banked = this.cursor - now + (this.totalSamples - this.playSample) / this.sampleRate;
 
     if (!this.playing) {
       if (banked < TARGET_LEAD && !this.finished) {
@@ -151,19 +210,28 @@ export class FramePlayer {
       }
       this.playing = true;
       this.onBuffering?.(false);
-      this.cursor = Math.max(this.cursor, now + 0.03);
+      const from = Math.max(this.cursor, now + 0.03);
+      if (from !== this.cursor) {
+        this.cursor = from;
+        this.origin = { time: from, sample: this.playSample };
+      }
     }
 
-    while (this.queue.length) {
-      const frame = this.queue.shift()!;
-      const buffer = context.createBuffer(1, frame.length, this.sampleRate);
-      buffer.copyToChannel(frame, 0);
+    while (this.nextFrame < this.frames.length) {
+      const frame = this.frames[this.nextFrame];
+      const slice = this.frameOffset ? frame.subarray(this.frameOffset) : frame;
+      this.nextFrame++;
+      this.frameOffset = 0;
+      if (!slice.length) continue;
+      const buffer = context.createBuffer(1, slice.length, this.sampleRate);
+      buffer.copyToChannel(slice, 0);
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(analyser);
-      if (this.startedAt === null) this.startedAt = this.cursor;
+      if (this.origin === null) this.origin = { time: this.cursor, sample: this.playSample };
       source.start(this.cursor);
       this.cursor += buffer.duration;
+      this.playSample += slice.length;
       this.sources.add(source);
       source.onended = () => this.sources.delete(source);
     }
@@ -174,10 +242,6 @@ export class FramePlayer {
       this.playing = false;
       this.onBuffering?.(true);
     }
-  }
-
-  private get frameSeconds(): number {
-    return 1920 / this.sampleRate;
   }
 
   /**
@@ -209,8 +273,10 @@ export class FramePlayer {
   /** Seconds of audio actually heard so far; frozen while rebuffering. */
   get playedSeconds(): number {
     const context = this.context;
-    if (!context || this.startedAt === null) return 0;
-    return Math.max(0, Math.min(this.cursor, context.currentTime) - this.startedAt);
+    const origin = this.origin;
+    if (!context || !origin) return 0;
+    const elapsed = Math.max(0, Math.min(this.cursor, context.currentTime) - origin.time);
+    return Math.min(this.totalSamples / this.sampleRate, origin.sample / this.sampleRate + elapsed);
   }
 
   /** Seconds of audio still queued ahead of the playhead. */
@@ -228,7 +294,12 @@ export class FramePlayer {
       }
     }
     this.sources.clear();
-    this.queue.length = 0;
+    this.frames.length = 0;
+    this.totalSamples = 0;
+    this.nextFrame = 0;
+    this.frameOffset = 0;
+    this.playSample = 0;
+    this.origin = null;
     void this.context?.close();
     this.context = null;
     this.analyser = null;

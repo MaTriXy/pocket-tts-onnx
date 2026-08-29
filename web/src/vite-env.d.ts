@@ -13,3 +13,7 @@ declare module "espeak-ng" {
   const factory: unknown;
   export default factory;
 }
+
+// Prism ships each language as a side-effect module that registers itself on
+// the core; only the core itself carries types.
+declare module "prismjs/components/*";

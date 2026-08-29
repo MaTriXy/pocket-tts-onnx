@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const BAR = 3;
 const GAP = 2;
@@ -16,16 +16,36 @@ export function Waveform({
   levels,
   progress,
   onSeek,
+  fill = false,
   height = 56,
 }: {
   levels: number[];
   progress: number;
-  onSeek?: (fraction: number) => void;
+  /**
+   * `done` is false for every position the pointer passes through and true for
+   * the one it is released on, so a source that is expensive to seek can follow
+   * the drag on screen and only move the audio once.
+   */
+  onSeek?: (fraction: number, done: boolean) => void;
+  /**
+   * Stretch the take across the whole strip instead of letting it grow into
+   * it. A finished take is not going to get any longer, so leaving half the
+   * strip empty would only make the seek bar half as long as it looks.
+   */
+  fill?: boolean;
   height?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const state = useRef({ levels, progress });
   state.current = { levels, progress };
+  // Where the pointer has put the playhead, held until the audio reports back
+  // from there, so releasing a drag does not flick to the old position.
+  const scrub = useRef<{ fraction: number; until: number } | null>(null);
+  const dragging = useRef(false);
+  // How wide the drawing actually is. A growing take covers part of the strip,
+  // so the pointer has to be measured against the bars rather than the canvas.
+  const extent = useRef(0);
+  const [grabbing, setGrabbing] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,20 +68,41 @@ export function Waveform({
       context.clearRect(0, 0, width, height);
 
       const slots = Math.max(1, Math.floor((width + GAP) / (BAR + GAP)));
-      // Fewer frames than bars means the waveform is still growing into the
-      // strip; more means it is downsampled and fills it.
-      const values = resample(state.current.levels, slots);
+      // Downsampled when there are more frames than bars. Fewer frames than
+      // bars either grow into the strip or, once the take is finished, are
+      // spread across it.
+      const values = bars(state.current.levels, slots, fill);
       const filled = values.length;
-      const played = state.current.progress * filled;
+      extent.current = filled === 0 ? 0 : fill ? width : filled * (BAR + GAP) - GAP;
+
+      const held = scrub.current;
+      if (held && !dragging.current) {
+        const settled = Math.abs(state.current.progress - held.fraction) < 0.02;
+        if (settled || performance.now() > held.until) scrub.current = null;
+      }
+      const fraction = scrub.current?.fraction ?? state.current.progress;
+      // In pixels rather than bars, so the playhead lands where the pointer is
+      // instead of snapping to the nearest 5 px bar.
+      const playedX = fraction * extent.current;
 
       for (let i = 0; i < filled; i++) {
         eased[i] = eased[i] === undefined ? 0 : eased[i] + (values[i] - eased[i]) * 0.4;
         const barHeight = Math.max(MIN_HEIGHT, eased[i] * (height - 4));
         const x = i * (BAR + GAP);
         const y = (height - barHeight) / 2;
-        context.fillStyle = i <= played ? "rgba(91, 100, 216, 0.95)" : "rgba(91, 100, 216, 0.28)";
+        const behind = x + BAR / 2 <= playedX;
+        context.fillStyle = behind ? "rgba(91, 100, 216, 0.95)" : "rgba(91, 100, 216, 0.28)";
         context.beginPath();
         context.roundRect(x, y, BAR, barHeight, BAR / 2);
+        context.fill();
+      }
+
+      // Only while a drag is in flight: the bars alone quantize to 5 px, which
+      // is not enough to aim with when you are looking for a word.
+      if (dragging.current && filled > 0) {
+        context.fillStyle = "rgba(91, 100, 216, 0.95)";
+        context.beginPath();
+        context.roundRect(Math.min(playedX, extent.current) - 1, 0, 2, height, 1);
         context.fill();
       }
 
@@ -75,35 +116,82 @@ export function Waveform({
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [height]);
+  }, [fill, height]);
 
-  const seek = useCallback(
-    (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const at = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    // Against the bars, not the canvas. Dividing by the full width when the
+    // take covers half the strip moves the playhead at half the pointer's
+    // speed and makes every pixel worth twice as much audio.
+    const width = extent.current || bounds.width;
+    return Math.min(1, Math.max(0, (event.clientX - bounds.left) / width));
+  }, []);
+
+  const hold = useCallback((fraction: number) => {
+    // Long enough for a seek to take effect, short enough that a seek which
+    // never lands does not strand the playhead.
+    scrub.current = { fraction, until: performance.now() + 500 };
+  }, []);
+
+  const down = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (!onSeek) return;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      onSeek(Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)));
+      // Capture so the drag keeps following the pointer once it leaves the strip.
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragging.current = true;
+      setGrabbing(true);
+      const fraction = at(event);
+      hold(fraction);
+      onSeek(fraction, false);
     },
-    [onSeek],
+    [at, hold, onSeek],
+  );
+
+  const move = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!onSeek || !dragging.current) return;
+      const fraction = at(event);
+      hold(fraction);
+      onSeek(fraction, false);
+    },
+    [at, hold, onSeek],
+  );
+
+  const up = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!onSeek || !dragging.current) return;
+      dragging.current = false;
+      setGrabbing(false);
+      const fraction = at(event);
+      hold(fraction);
+      onSeek(fraction, true);
+    },
+    [at, hold, onSeek],
   );
 
   return (
     <canvas
       ref={canvasRef}
-      onClick={seek}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
       style={{
         width: "100%",
         height,
         display: "block",
-        cursor: onSeek ? "pointer" : "default",
+        cursor: onSeek ? (grabbing ? "grabbing" : "pointer") : "default",
+        // A drag across the strip is a scrub, not a page scroll.
+        touchAction: onSeek ? "none" : undefined,
       }}
     />
   );
 }
 
 /** Fit any number of frame peaks onto the bars that fit the canvas. */
-function resample(levels: number[], slots: number): number[] {
+function bars(levels: number[], slots: number, fill: boolean): number[] {
   if (levels.length === 0) return [];
-  if (levels.length <= slots) return levels;
+  if (levels.length <= slots && !fill) return levels;
   const out = new Array<number>(slots).fill(0);
   for (let i = 0; i < slots; i++) {
     const from = Math.floor((i * levels.length) / slots);

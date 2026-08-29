@@ -5,7 +5,7 @@ import {
   Box,
   Button,
   Group,
-  SegmentedControl,
+  Modal,
   Stack,
   Text,
   Textarea,
@@ -16,23 +16,30 @@ import {
   IconArrowRight,
   IconBrandGithub,
   IconBinaryTree2,
+  IconCode,
+  IconMicrophone,
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
   IconPlayerStopFilled,
+  IconWaveSine,
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Debug, type DebugInfo } from "./components/Debug";
 import { Examples, type Example } from "./components/Examples";
+import { LanguageSelect } from "./components/LanguageSelect";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
+import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
 import type { Progress } from "./lib/assets";
 import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
 import { Engine, type Stage } from "./lib/engine";
 import { Recorder } from "./lib/recorder";
+import { prefersHebrew } from "./i18n";
 import { MODELS_URL } from "./lib/runtime";
 
 type Mode = "english" | "hebrew";
@@ -43,7 +50,7 @@ const EXAMPLES: Record<Mode, Example[]> = {
   english: [
     {
       label: "hello",
-      text: "Hello there. This whole model is running inside your browser — no server, no upload, nothing leaving this tab.",
+      text: "Hello there. This whole model is running inside your browser, with no server and nothing leaving this tab.",
     },
     {
       label: "phonemes",
@@ -74,14 +81,12 @@ const SAMPLES: Record<Mode, string> = {
   hebrew: EXAMPLES.hebrew[0].text,
 };
 
-const STAGE_LABEL: Record<Stage, string> = {
-  model: "Downloading the voice model",
-  g2p: "Downloading the Hebrew phonemizer",
-  encoder: "Downloading the voice encoder",
-  espeak: "Downloading the English phonemizer",
+// The worker reports its own steps by short English names; these are the keys
+// they are shown under.
+const WORKER_STATUS: Record<string, string> = {
+  phonemizing: "status.phonemizing",
+  "warming up": "status.warmingUp",
 };
-
-
 
 const RTL = /[\u0590-\u05FF]/;
 
@@ -91,17 +96,28 @@ const clock = (seconds: number) => {
 };
 
 export function App() {
+  const { t } = useTranslation();
   const [engine, setEngine] = useState<Engine | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [stage, setStage] = useState<Stage>("model");
   const [error, setError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<Mode>("english");
-  const [text, setText] = useState(SAMPLES.english);
+  // The browser's own language is the first guess at what will be spoken.
+  const [mode, setMode] = useState<Mode>(() => (prefersHebrew() ? "hebrew" : "english"));
+  const [text, setText] = useState(() => SAMPLES[prefersHebrew() ? "hebrew" : "english"]);
   const [voice, setVoice] = useState("alba");
   const [cloned, setCloned] = useState<ClonedVoice | null>(null);
   const [busy, setBusy] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+
+  // Everything about the voice lives behind its name in the header: picking
+  // one is a moment's work, and cloning is rarer still, so neither earns a
+  // permanent panel under the composer.
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  // The code and the tokens are both things you go and look at, not things the
+  // composer needs beside it, so each opens over the page and leaves again.
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
 
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -118,24 +134,9 @@ export function App() {
   const [heard, setHeard] = useState(0);
   const [result, setResult] = useState<Blob | null>(null);
   const [debug, setDebug] = useState<DebugInfo | null>(null);
-  // The token view is a toggle rather than a URL flag, because it is genuinely
-  // useful for anyone wondering why a line came out the way it did.
-  const [debugging, setDebugging] = useState(() => {
-    if (new URLSearchParams(location.search).has("debug")) return true;
-    try {
-      return localStorage.getItem("pocket-tts-tokens") === "1";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("pocket-tts-tokens", debugging ? "1" : "0");
-    } catch {
-      /* private windows have no storage; the toggle still works for this visit */
-    }
-  }, [debugging]);
+  // A run is under way and its tokens have not arrived. The last run's tokens
+  // stay on screen meanwhile, so the panel never collapses and springs back.
+  const [debugPending, setDebugPending] = useState(false);
 
   const conditioning = useRef<Float32Array | null>(null);
   const playerRef = useRef<FramePlayer | null>(null);
@@ -150,9 +151,15 @@ export function App() {
     })
       .then((loaded) => {
         setEngine(loaded);
-        setVoice(loaded.voices.includes("alba") ? "alba" : loaded.voices[0]);
+        // A Hebrew page on an English-only model still has to speak something.
+        const spoken = loaded.hasPhonemes ? mode : "english";
+        if (spoken !== mode) setMode(spoken);
+        const preferred = spoken === "hebrew" ? "omer" : "alba";
+        setVoice(loaded.voices.includes(preferred) ? preferred : loaded.voices[0]);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
+    // Loads once; the mode read here is the one the page opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -182,6 +189,19 @@ export function App() {
     else void player.pause().then(() => setPaused(true));
   }, []);
 
+  // Scrub the take as it is being generated. Reseeking rebuilds the schedule
+  // from the new point, which is too much work to do for every position a drag
+  // passes over, so the audio moves on release while the waveform follows the
+  // pointer throughout.
+  const seekLive = useCallback(
+    (fraction: number, done: boolean) => {
+      if (!done) return;
+      const generated = (levelsRef.current * 1920) / (engine?.sampleRate ?? 24000);
+      playerRef.current?.seek(fraction * generated);
+    },
+    [engine],
+  );
+
   const stop = useCallback(() => {
     abort.current?.abort();
     engine?.cancel();
@@ -198,13 +218,13 @@ export function App() {
     abort.current = controller;
     setSpeaking(true);
     setResult(null);
-    setDebug(null);
+    setDebugPending(true);
     setLevels([]);
     setPlayed(0);
     setHeard(0);
     setPaused(false);
     levelsRef.current = 0;
-    setStatus("preparing");
+    setStatus(t("status.preparing"));
 
     try {
       const selected =
@@ -222,9 +242,14 @@ export function App() {
 
       for await (const frame of engine.speak(text, selected, {
         decodeSteps: 2,
-        debug: debugging,
-        onStatus: setStatus,
-        onDebug: setDebug,
+        // One extra tokenize of a sentence, next to a voice warmup and a
+        // phonemizer: cheap enough to always have the answer ready.
+        debug: true,
+        onStatus: (next) => setStatus(WORKER_STATUS[next] ? t(WORKER_STATUS[next]) : next),
+        onDebug: (next) => {
+          setDebug(next);
+          setDebugPending(false);
+        },
         onProgress: (nextStage, next) => {
           setStage(nextStage);
           setProgress(next);
@@ -232,7 +257,7 @@ export function App() {
       })) {
         if (controller.signal.aborted) break;
         if (!frames.length) {
-          setStatus(`first audio in ${Math.round(performance.now() - started)} ms`);
+          setStatus(t("status.firstAudio", { ms: Math.round(performance.now() - started) }));
         }
         frames.push(frame);
         player.push(frame as Float32Array<ArrayBuffer>);
@@ -257,7 +282,11 @@ export function App() {
       const seconds = total / engine.sampleRate;
       const elapsed = (performance.now() - started) / 1000;
       setStatus(
-        `${seconds.toFixed(1)}s of audio in ${elapsed.toFixed(1)}s — ${(seconds / elapsed).toFixed(1)}× real time`,
+        t("status.done", {
+          seconds: seconds.toFixed(1),
+          elapsed: elapsed.toFixed(1),
+          speed: (seconds / elapsed).toFixed(1),
+        }),
       );
 
       // Generation is done but the speakers are not. Hold the streaming view,
@@ -272,14 +301,15 @@ export function App() {
       }
     } finally {
       setSpeaking(false);
+      setDebugPending(false);
       abort.current = null;
     }
-  }, [cloned, debugging, engine, speaking, stop, text, voice]);
+  }, [cloned, engine, speaking, stop, t, text, voice]);
 
   const adopt = useCallback(
     async (samples: Float32Array, sampleRate: number, name: string) => {
       if (!engine) return;
-      setVoiceStatus("encoding");
+      setVoiceStatus(t("status.encoding"));
       const mono = resample(samples, sampleRate, engine.sampleRate);
       const { seconds } = await engine.clone(mono, (nextStage, next) => {
         setStage(nextStage);
@@ -290,8 +320,10 @@ export function App() {
       setCloned({ name, seconds });
       setVoice(name);
       setVoiceStatus(null);
+      // The new voice is already selected; there is nothing left to do in there.
+      setVoiceOpen(false);
     },
-    [engine],
+    [engine, t],
   );
 
   const clone = useCallback(
@@ -299,16 +331,16 @@ export function App() {
       if (!engine) return;
       setBusy(true);
       try {
-        setVoiceStatus("reading the file");
+        setVoiceStatus(t("status.readingFile"));
         const { samples, sampleRate } = await decodeAudioFile(file);
-        await adopt(samples, sampleRate, file.name.replace(/\.[^.]+$/, "").slice(0, 18) || "cloned");
+        await adopt(samples, sampleRate, file.name.replace(/\.[^.]+$/, "").slice(0, 18) || t("status.cloned"));
       } catch (cause) {
-        setVoiceStatus(cause instanceof Error ? cause.message : "could not read that file");
+        setVoiceStatus(cause instanceof Error ? cause.message : t("status.cannotReadFile"));
       } finally {
         setBusy(false);
       }
     },
-    [adopt, engine],
+    [adopt, engine, t],
   );
 
   const startRecording = useCallback(async () => {
@@ -321,10 +353,10 @@ export function App() {
       setRecording(true);
       setVoiceStatus(null);
     } catch (cause) {
-      setVoiceStatus(cause instanceof Error ? cause.message : "no microphone");
+      setVoiceStatus(cause instanceof Error ? cause.message : t("status.noMicrophone"));
       setBusy(false);
     }
-  }, [engine]);
+  }, [engine, t]);
 
   const stopRecording = useCallback(async () => {
     const active = recorder.current;
@@ -333,18 +365,18 @@ export function App() {
     try {
       const { blob, seconds } = await active.stop();
       if (seconds < 1) {
-        setVoiceStatus("too short — try five seconds or so");
+        setVoiceStatus(t("status.tooShort"));
         return;
       }
       const { samples, sampleRate } = await decodeAudioFile(await blob.arrayBuffer());
-      await adopt(samples, sampleRate, "your voice");
+      await adopt(samples, sampleRate, t("status.yourVoice"));
     } catch (cause) {
-      setVoiceStatus(cause instanceof Error ? cause.message : "could not use that recording");
+      setVoiceStatus(cause instanceof Error ? cause.message : t("status.cannotUseRecording"));
     } finally {
       recorder.current = null;
       setBusy(false);
     }
-  }, [adopt]);
+  }, [adopt, t]);
 
   // Follow the playhead while streaming, so the waveform fills as it is heard.
   useEffect(() => {
@@ -381,10 +413,10 @@ export function App() {
   useEffect(() => () => recorder.current?.release(), []);
 
   const modes = useMemo(() => {
-    const options = [{ label: "English", value: "english" }];
-    if (engine?.hasPhonemes) options.push({ label: "Hebrew", value: "hebrew" });
+    const options = [{ label: t("app.modes.english"), value: "english", flag: "🇬🇧" }];
+    if (engine?.hasPhonemes) options.push({ label: t("app.modes.hebrew"), value: "hebrew", flag: "🇮🇱" });
     return options;
-  }, [engine]);
+  }, [engine, t]);
 
   const rtl = RTL.test(text);
 
@@ -409,16 +441,16 @@ export function App() {
                 Pocket TTS
               </Title>
               <Badge variant="default" size="sm" radius="sm" fw={500} c="dimmed">
-                in your browser
+                {t("app.badge")}
               </Badge>
             </Group>
             <Text c="dimmed" maw={540} fz={15}>
-              Kyutai&rsquo;s speech model on onnxruntime-web, streaming frame by frame. English and
-              Hebrew, voice cloning, and not one byte sent anywhere.
+              {t("app.tagline")}
             </Text>
           </Stack>
-          <Tooltip label="Source on GitHub" withArrow>
-            <ActionIcon
+          <Group gap={4}>
+            <Tooltip label={t("app.github")} withArrow>
+              <ActionIcon
               component="a"
               href="https://github.com/thewh1teagle/pocket-tts-onnx"
               target="_blank"
@@ -426,14 +458,15 @@ export function App() {
               color="ink"
               size="lg"
             >
-              <IconBrandGithub size={19} />
-            </ActionIcon>
-          </Tooltip>
+                <IconBrandGithub size={19} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
 
         <AnimatePresence mode="wait">
           {!engine ? (
-            <Loader key="loader" progress={progress} label={STAGE_LABEL[stage]} error={error} />
+            <Loader key="loader" progress={progress} label={t(`stage.${stage}`)} error={error} />
           ) : (
             <motion.div
               key="studio"
@@ -444,24 +477,54 @@ export function App() {
               <Stack gap={28}>
                 <Box className="card" p={24}>
                   <Stack gap={20}>
-                    <Group justify="space-between">
-                      <SegmentedControl
-                        value={mode}
-                        onChange={(value) => setMode(value as Mode)}
-                        data={modes}
-                        radius="xl"
-                        size="xs"
-                      />
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap={10} wrap="nowrap">
+                        <LanguageSelect
+                          value={mode}
+                          options={modes}
+                          onChange={(value) => setMode(value as Mode)}
+                        />
+                        <Tooltip label={t("app.pickVoice")} withArrow>
+                          <Button
+                            variant="default"
+                            size="xs"
+                            radius="xl"
+                            onClick={() => setVoiceOpen(true)}
+                            leftSection={
+                              voice === cloned?.name ? (
+                                <IconWaveSine size={14} color="var(--accent)" />
+                              ) : (
+                                <IconMicrophone size={14} color="var(--ink-faint)" />
+                              )
+                            }
+                            styles={{ label: { fontWeight: 500, textTransform: "capitalize" } }}
+                          >
+                            {busy ? (voiceStatus ?? t("app.working")) : voice}
+                          </Button>
+                        </Tooltip>
+                      </Group>
                       <Group gap={6}>
-                        <Text className="mono">{mode === "hebrew" ? "עברית" : "text"}</Text>
-                        <Tooltip label="Show how the text is tokenized" withArrow>
+                        <Text className="mono">{mode === "hebrew" ? t("app.modes.hebrew") : t("app.textLabel")}</Text>
+                        <Tooltip label={t("app.runFromPython")} withArrow>
                           <ActionIcon
-                            variant={debugging ? "light" : "subtle"}
-                            color={debugging ? "accent" : "gray"}
+                            variant="subtle"
+                            color="gray"
                             size="sm"
                             radius="xl"
-                            onClick={() => setDebugging((on) => !on)}
-                            aria-label="Toggle the token view"
+                            onClick={() => setCodeOpen(true)}
+                            aria-label={t("app.showCode")}
+                          >
+                            <IconCode size={15} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label={t("app.showTokens")} withArrow>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            radius="xl"
+                            onClick={() => setTokensOpen(true)}
+                            aria-label={t("app.showTokensAria")}
                           >
                             <IconBinaryTree2 size={15} />
                           </ActionIcon>
@@ -477,7 +540,7 @@ export function App() {
                         minRows={3}
                         maxRows={9}
                         variant="unstyled"
-                        placeholder="Say something"
+                        placeholder={t("app.placeholder")}
                       />
                     </Box>
 
@@ -485,8 +548,6 @@ export function App() {
                       examples={EXAMPLES[mode]}
                       onPick={(example) => setText(example.text)}
                     />
-
-                    {debugging && <Debug info={debug} />}
 
                     {result && !speaking ? (
                       <Player wav={result} levels={levels} filename={`pocket-tts-${mode}.wav`} />
@@ -501,7 +562,7 @@ export function App() {
                           size={34}
                           disabled={!speaking}
                           onClick={togglePause}
-                          aria-label={paused ? "Resume" : "Pause"}
+                          aria-label={paused ? t("app.resume") : t("app.pause")}
                         >
                           {paused ? (
                             <IconPlayerPlayFilled size={14} />
@@ -509,10 +570,14 @@ export function App() {
                             <IconPlayerPauseFilled size={14} />
                           )}
                         </ActionIcon>
-                        <div style={{ flex: 1 }}>
-                          <Waveform levels={levels} progress={played} />
+                        <div style={{ flex: 1 }} dir="ltr">
+                          <Waveform
+                            levels={levels}
+                            progress={played}
+                            onSeek={speaking ? seekLive : undefined}
+                          />
                         </div>
-                        <Text className="mono" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <Text className="mono" dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>
                           {clock(heard)} / {clock((levels.length * 1920) / 24000)}
                         </Text>
                       </Group>
@@ -521,8 +586,8 @@ export function App() {
                     <Group justify="space-between" align="center">
                       <Text className="mono">
                         {buffering
-                          ? "buffering — this device is slower than real time"
-                          : (status ?? `${text.trim().length} characters`)}
+                          ? t("app.buffering")
+                          : (status ?? t("app.characters", { count: text.trim().length }))}
                       </Text>
                       <Group gap={8}>
                         {speaking ? (
@@ -532,7 +597,7 @@ export function App() {
                             leftSection={<IconPlayerStopFilled size={13} />}
                             onClick={stop}
                           >
-                            Stop
+                            {t("app.stop")}
                           </Button>
                         ) : (
                           <Button
@@ -542,7 +607,7 @@ export function App() {
                             onClick={speak}
                             disabled={!text.trim()}
                           >
-                            Generate
+                            {t("app.generate")}
                           </Button>
                         )}
                       </Group>
@@ -550,34 +615,79 @@ export function App() {
                   </Stack>
                 </Box>
 
-                <VoicePanel
-                  voices={voices}
-                  cloned={cloned}
-                  selected={voice}
-                  onSelect={setVoice}
-                  onDrop={clone}
-                  onRecord={startRecording}
-                  onStopRecording={stopRecording}
-                  recording={recording}
-                  recordSeconds={recordSeconds}
-                  recordLevel={recordLevel}
-                  busy={busy}
-                  status={voiceStatus}
-                />
               </Stack>
             </motion.div>
           )}
         </AnimatePresence>
 
+        <Modal
+          opened={codeOpen}
+          onClose={() => setCodeOpen(false)}
+          title={t("app.modal.code")}
+          centered
+          radius={18}
+          size="lg"
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+        >
+          <Snippets mode={mode} />
+        </Modal>
+
+        <Modal
+          opened={tokensOpen}
+          onClose={() => setTokensOpen(false)}
+          title={t("app.modal.tokens")}
+          centered
+          radius={18}
+          size="lg"
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+        >
+          <Debug info={debug} pending={debugPending && speaking} />
+        </Modal>
+
+        <Modal
+          opened={voiceOpen}
+          onClose={() => setVoiceOpen(false)}
+          title={t("app.modal.voice")}
+          centered
+          radius={18}
+          size="lg"
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+          // Recording holds the microphone, so it has to be stopped rather
+          // than dismissed out from under.
+          closeOnClickOutside={!recording}
+          closeOnEscape={!recording}
+        >
+          <VoicePanel
+            voices={voices}
+            cloned={cloned}
+            selected={voice}
+            onSelect={(next) => {
+              setVoice(next);
+              setVoiceOpen(false);
+            }}
+            onDrop={clone}
+            onRecord={startRecording}
+            onStopRecording={stopRecording}
+            recording={recording}
+            recordSeconds={recordSeconds}
+            recordLevel={recordLevel}
+            busy={busy}
+            status={voiceStatus}
+          />
+        </Modal>
+
         <Text size="xs" c="dimmed" ta="center">
-          Model by{" "}
-          <Anchor href="https://kyutai.org/pocket-tts" target="_blank" size="xs" c="dimmed" underline="always">
-            Kyutai
-          </Anchor>
-          , Hebrew phonemes by{" "}
-          <Anchor href="https://huggingface.co/thewh1teagle/renikud" target="_blank" size="xs" c="dimmed" underline="always">
-            renikud
-          </Anchor>
+          <Trans
+            i18nKey="app.footer"
+            components={{
+              kyutai: (
+                <Anchor href="https://kyutai.org/pocket-tts" target="_blank" size="xs" c="dimmed" underline="always" />
+              ),
+              renikud: (
+                <Anchor href="https://huggingface.co/thewh1teagle/renikud" target="_blank" size="xs" c="dimmed" underline="always" />
+              ),
+            }}
+          />
         </Text>
       </Stack>
     </div>
