@@ -105,7 +105,7 @@ task typecheck {
     npm run typecheck
 }
 
-# Run one of the examples: english, hebrew or stream
+# Run one of the examples: english, hebrew, stream, tuning or speed
 task example name=english {
     exists examples/$1.py || fail "no example named $1"
     uv run python examples/$1.py
@@ -113,5 +113,5 @@ task example name=english {
 
 # Delete build output and the audio the examples write
 task clean {
-    remove web/dist build audio.wav
+    remove web/dist build audio.wav tuning-*.wav speed-*.wav
 }

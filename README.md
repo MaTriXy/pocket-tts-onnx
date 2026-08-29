@@ -70,7 +70,8 @@ cost nothing when off, Hebrew with automatic niqqud, and int8 export.
 
 ## More
 
-* [Examples](examples/): writing a wav, streaming to your speakers, Hebrew
+* [Examples](examples/): writing a wav, streaming to your speakers, Hebrew,
+  tuning a take, changing its speed
 * [Using it](docs/usage.md): voices, cloning, phonemes, adapters, decode steps
 * [How it works](docs/design.md): the streaming graph, what rides in the file,
   int8, and what was measured against upstream
