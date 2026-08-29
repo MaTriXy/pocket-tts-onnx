@@ -31,7 +31,6 @@
     "settings": "Tune the take",
     "theme": {
       "label": "Colour scheme",
-      "auto": "Follow the system",
       "light": "Light",
       "dark": "Dark"
     }

@@ -1,20 +1,18 @@
 import { ActionIcon, Tooltip, useMantineColorScheme } from "@mantine/core";
-import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 
 const CHOICES = [
-  { value: "auto", Icon: IconDeviceDesktop },
   { value: "light", Icon: IconSun },
   { value: "dark", Icon: IconMoon },
 ] as const;
 
 /**
- * System, light, dark.
+ * Light or dark.
  *
- * Three states rather than a switch, because "follow the system" is a position
- * of its own and a two-way toggle cannot get back to it once it has been left.
- * `auto` is where everyone starts, so the page is already the right colour
- * before anyone has an opinion about it.
+ * Light is where everyone starts, whatever the system says; the page is a tool
+ * with a paper-white default, not a mirror of the desktop. The choice is kept
+ * in localStorage by Mantine's own scheme manager, so it survives a reload.
  */
 export function ColorScheme() {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
