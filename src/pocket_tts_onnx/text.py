@@ -10,11 +10,28 @@ import re
 logger = logging.getLogger(__name__)
 
 
+# A blank line is a sentence boundary; a single line break is not. Newlines are
+# flattened to spaces before splitting, so a title or a paragraph that ends
+# without punctuation ran straight into the next line. Only a blank line is
+# unambiguous enough to act on: it gets a period when the line before it ends
+# in a letter or digit, and a single break is left alone, since a sentence that
+# merely wraps must not be cut.
+_PARAGRAPH = re.compile(r"([^\s\"'\u201d\u2019)\]])([\"'\u201d\u2019)\]]*)[ \t]*\n[ \t]*\n\s*")
+
+
+def break_paragraphs(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        last, closers = match.group(1), match.group(2)
+        return f"{last}{closers}. " if last.isalnum() else f"{last}{closers} "
+
+    return _PARAGRAPH.sub(repl, text)
+
+
 def prepare_text_prompt(
     text: str, pad_with_spaces_for_short_inputs: bool, remove_semicolons: bool
 ) -> tuple[str, int]:
     """Normalise a chunk and guess how many frames to keep past EOS."""
-    text = text.strip()
+    text = break_paragraphs(text.strip())
     if text == "":
         raise ValueError("Text prompt cannot be empty")
     text = text.replace("\n", " ").replace("\r", " ").replace("  ", " ")
@@ -176,7 +193,7 @@ def prepare_phoneme_prompt(text: str) -> str:
     The English path uppercases the first character and appends a period; both
     corrupt IPA, so the adapter's inference path skips them and so do we.
     """
-    text = text.replace("\n", " ").replace("\r", " ").strip()
+    text = break_paragraphs(text.strip()).replace("\n", " ").replace("\r", " ").strip()
     while "  " in text:
         text = text.replace("  ", " ")
     if text == "":

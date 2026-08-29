@@ -13,6 +13,23 @@ const MARKER = /<IPA_U([0-9A-Fa-f]{4,6})>/g;
 const SENTENCE_END = ".!?";
 const CLAUSE_END = ",;:";
 
+/**
+ * A blank line is a sentence boundary; a single line break is not.
+ *
+ * Newlines are flattened to spaces before splitting, so a title or a paragraph
+ * that ends without punctuation ran straight into the next line. Only a blank
+ * line is unambiguous enough to act on: it gets a period when the line before
+ * it ends in a letter or digit, and a single break is left alone, since a
+ * sentence that merely wraps must not be cut.
+ */
+const PARAGRAPH = /([^\s"'”’)\]])(["'”’)\]]*)[ \t]*\n[ \t]*\n\s*/gu;
+
+export function breakParagraphs(text: string): string {
+  return text.replace(PARAGRAPH, (_, last: string, closers: string) =>
+    /[\p{L}\p{N}]/u.test(last) ? `${last}${closers}. ` : `${last}${closers} `,
+  );
+}
+
 export interface Tokenizer {
   encode(text: string): number[];
 }
@@ -22,7 +39,7 @@ export function prepareTextPrompt(
   padShortInputs: boolean,
   removeSemicolons: boolean,
 ): { prompt: string; framesAfterEosGuess: number } {
-  let prompt = text.trim();
+  let prompt = breakParagraphs(text.trim());
   if (prompt === "") throw new Error("Text prompt cannot be empty");
   prompt = prompt.replaceAll("\n", " ").replaceAll("\r", " ").replaceAll("  ", " ");
   if (removeSemicolons) prompt = prompt.replaceAll(";", ",");
@@ -38,7 +55,7 @@ export function prepareTextPrompt(
 
 /** Whitespace tidying only: IPA must not be capitalised or given a period. */
 export function preparePhonemePrompt(text: string): string {
-  let prompt = text.replaceAll("\n", " ").replaceAll("\r", " ").trim();
+  let prompt = breakParagraphs(text.trim()).replaceAll("\n", " ").replaceAll("\r", " ").trim();
   while (prompt.includes("  ")) prompt = prompt.replaceAll("  ", " ");
   if (prompt === "") throw new Error("Text prompt cannot be empty");
   return prompt;

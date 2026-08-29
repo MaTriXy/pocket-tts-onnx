@@ -64,8 +64,18 @@ const EXAMPLES: Record<Mode, Example[]> = {
       text: "Good morning, and welcome. This whole model is running inside your browser, with no server and nothing leaving this tab.",
     },
     {
+      // Paragraphs, with a title that has no period: a blank line is what
+      // gives the reader a pause there.
       label: "story",
-      text: "The lighthouse keeper climbed the stairs one last time, and the sea below was calmer than it had been all winter.",
+      text: [
+        "The Cat and the Star",
+        "One night, a small cat named Milo sat by the window and looked up at the sky.",
+        "Suddenly he saw a little star fall behind the trees.",
+        "Milo ran outside to find it. He searched the garden, under the tree and beside the flowers, but there was no star anywhere.",
+        "At last he lifted his head and saw that the sky was still full of stars.",
+        "Milo smiled and said: \"I suppose the star just wanted me to go for a walk.\"",
+        "He went back home, curled up in his blanket and fell asleep with a smile.",
+      ].join("\n\n"),
     },
     {
       label: "question",
@@ -81,8 +91,20 @@ const EXAMPLES: Record<Mode, Example[]> = {
     { label: "עברית", text: "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!", rtl: true },
     { label: "עם אנגלית", text: "אני משתמש ב-Claude Code ועושה vibe coding כל היום.", rtl: true },
     {
+      // Paragraphs, with a title that has no period: a blank line is what
+      // gives the reader a pause there. The ole (U+05AB) marks stress, and a
+      // word that carries one also needs its prefixes cut off with `|`, as in
+      // the enhanced-nikud data; the brackets keep a word exactly as written.
       label: "סיפור",
-      text: "שומר המגדלור טיפס במדרגות בפעם האחרונה, והים למטה היה שקט יותר מאשר בכל החורף.",
+      text: [
+        "הַחָתוּל וְהַכּוֹכָב",
+        "לַיְלָה אֶחָד, חָתוּל קָטָן בְּשֵׁם [[מִ֫יְּלוּ]] יָשַׁב לְיַד הַחַלּוֹן וְהִסְתַּכֵּל עַל הַשָּׁמַיִם.",
+        "פִּתְאוֹם הוּא רָאָה כּוֹכָב קָטָן נוֹפֵל מֵאֲחוֹרֵי הָעֵצִים.",
+        "[[מִ֫יְּלוּ]] רָץ [[הַ|ח֫וּצָה]] כְּדֵי לִמְצֹא אוֹתוֹ. הוּא חִפֵּשׂ בַּגִּנָּה, מִתַּחַת לָעֵץ וּלְיַד הַפְּרָחִים, אֲבָל לֹא מָצָא שׁוּם כּוֹכָב.",
+        "בַּסּוֹף הוּא הֵרִים אֶת הָרֹאשׁ וְרָאָה [[שֶׁ|הַ|שָּׁמַ֫יִם]] עֲדַיִן מְלֵאִים בְּכוֹכָבִים.",
+        "[[מִ֫יְּלוּ]] חִיֵּךְ וְאָמַר: \"כַּנִּרְאֶה שֶׁהַכּוֹכָב רַק רָצָה שֶׁאֵצֵא לְטִיּוּל.\"",
+        "הוּא חָזַר הַבַּיְתָה, הִתְכַּרְבֵּל בַּשְּׂמִיכָה וְנִרְדַּם עִם חִיּוּךְ.",
+      ].join("\n\n"),
       rtl: true,
     },
     {
@@ -686,7 +708,7 @@ export function App() {
                         onChange={(event) => setText(event.currentTarget.value)}
                         autosize
                         minRows={3}
-                        maxRows={9}
+                        maxRows={6}
                         variant="unstyled"
                         placeholder={t("app.placeholder")}
                       />
