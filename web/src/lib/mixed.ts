@@ -4,7 +4,7 @@
  * A port of `phonemize_mixed` from the Python package. Each part of the input
  * goes the shortest way to phonemes it can:
  *
- * - `[[ʃalˈom]]` is already IPA, so the brackets come off and nothing else
+ * - `[[ʃalˈom]]` is already unambiguous, so the brackets come off and nothing else
  *   happens to it;
  * - Hebrew carrying nikud is already unambiguous, so it is kept exactly as
  *   written and tokenized as atomic Hebrew and nikud characters;

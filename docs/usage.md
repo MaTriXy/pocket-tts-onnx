@@ -60,7 +60,7 @@ tts.create(text, voice=cond, phonemes=True)
 
 | written as | becomes |
 | --- | --- |
-| `[[ʃalˈom]]` | itself, brackets removed (for fixing one word by hand) |
+| `[[ʃalˈom]]`, `[[הַיָּם]]` | itself, brackets removed: IPA or nikud, whatever is inside is spoken as written |
 | Hebrew with nikud, plain or enhanced | itself, kept exactly as typed |
 | unvocalized Hebrew | phonemes from [renikud](https://huggingface.co/thewh1teagle/renikud) |
 | Latin script | phonemes from espeak (pass `language=None` to leave it as written) |

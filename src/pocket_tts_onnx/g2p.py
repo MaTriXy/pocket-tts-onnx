@@ -25,7 +25,7 @@ from functools import lru_cache
 from pathlib import Path
 
 DEFAULT_LANGUAGE = "en-us"
-# Text between double brackets is already phonemes and is passed straight through.
+# Text between double brackets is already unambiguous and is passed straight through.
 LITERAL = re.compile(r"\[\[(.*?)\]\]", re.DOTALL)
 _WORDS = re.compile(r"(\s+)")
 _SCRIPTS = re.compile(r"[\u0590-\u05FF]+|[^\u0590-\u05FF]+")
@@ -157,7 +157,7 @@ def phonemize_mixed(
 
     Each part goes the shortest way to phonemes it can:
 
-    * `[[ʃalˈom]]` is already IPA, so the brackets come off and nothing else
+    * `[[ʃalˈom]]` is already unambiguous, so the brackets come off and nothing else
       happens to it;
     * Hebrew carrying nikud is already unambiguous, so it is kept exactly as
       written and tokenized as atomic Hebrew and nikud characters;

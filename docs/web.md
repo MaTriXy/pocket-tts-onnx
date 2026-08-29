@@ -46,10 +46,10 @@ always streams; it never waits for the whole take.
 ## Input formats
 
 The Hebrew tab takes ordinary text and decides per part what to do with it:
-double brackets hold IPA and are passed through, Hebrew with nikud is kept as
-typed (plain or with the phonikud marks for stress, vocal shva and prefix
-boundaries), unvocalized Hebrew goes through renikud, and Latin words go through
-espeak. There is no separate phonemes tab, because `[[ʃalˈom]]` anywhere in
+double brackets are passed through as typed, IPA or nikud alike, Hebrew with
+nikud is kept as typed (plain or with the phonikud marks for stress, vocal shva
+and prefix boundaries), unvocalized Hebrew goes through renikud, and Latin words
+go through espeak. There is no separate phonemes tab, because `[[ʃalˈom]]` anywhere in
 the line does that job, in either language.
 
 espeak is an 18 MB wasm build, so it is fetched only when a line actually mixes

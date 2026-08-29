@@ -72,6 +72,7 @@ export interface DebugPayload {
 const HEBREW = /[֐-׿]/;
 const LATIN = /\p{Script=Latin}/u;
 const LITERAL = /\[\[[\s\S]*?\]\]/;
+const LITERAL_BODY = /\[\[([\s\S]*?)\]\]/g;
 
 let tts: PocketTTS | null = null;
 let manifest: Manifest | null = null;
@@ -146,7 +147,10 @@ async function speak(request: Extract<Request, { kind: "speak" }>): Promise<void
   // reads it better than phonemes; anything with Hebrew or a `[[literal]]`
   // needs the adapter, because only its tokenizer has ids for those characters.
   const phonemes = tts.phonemeTokenizer !== null && (HEBREW.test(text) || LITERAL.test(text));
-  let prompt = text;
+  // Every model but the adapted one lacks ids for what a literal holds, so the
+  // brackets cannot be honoured there. Take them off anyway: `[[hola]]` on the
+  // Spanish model is then simply spoken, rather than read out as punctuation.
+  let prompt = phonemes ? text : text.replace(LITERAL_BODY, "$1");
   if (phonemes) {
     post({ id, kind: "status", status: "phonemizing" });
     const hebrewG2P = HEBREW.test(text) ? await hebrew(id) : null;
