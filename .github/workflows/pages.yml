@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "packages/pocket-tts-onnx/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -31,7 +32,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            packages/pocket-tts-onnx/package-lock.json
+
+      # The site is built from the library next door. A `file:` dependency is
+      # linked rather than installed, so npm never fetches its devDependencies
+      # — and its `prepare` build then runs without a tsc. Installing it first
+      # is what puts one there.
+      - name: Install the library
+        working-directory: packages/pocket-tts-onnx
+        run: npm ci
 
       - run: npm ci
 
