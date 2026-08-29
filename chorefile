@@ -53,9 +53,6 @@ task export-languages {
     uv run pocket-tts-onnx-export build/pocket-tts-fr.onnx --language french_24l --quantize --voices fr:estelle fr:javert
     uv run pocket-tts-onnx-web build/pocket-tts-fr.onnx web/models/fr
 }
-        uv run pocket-tts-onnx-export build/pocket-tts-$code.onnx --language $cfg --quantize --voices $code:$a $code:$b
-        uv run pocket-tts-onnx-web build/pocket-tts-$code.onnx web/models/$code
-    }
 }
 
 # Install the web app's dependencies, if they are not there yet
