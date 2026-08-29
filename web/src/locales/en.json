@@ -104,7 +104,8 @@
     "cloneTitle": "Clone a voice",
     "cloneHint": "wav, mp3, ogg, flac · up to 40 MB",
     "dropTitle": "Drop an audio file here, or record one",
-    "listening": "Listening — speak for five to ten seconds"
+    "listening": "Listening — speak for five to ten seconds",
+    "consent": "Only clone voices you have permission to use. Never to impersonate someone."
   },
   "download": {
     "title": "{{language}} is a separate model",

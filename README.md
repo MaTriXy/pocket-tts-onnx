@@ -78,6 +78,13 @@ cost nothing when off, Hebrew with automatic niqqud, and int8 export.
 * [Exporting](docs/export.md): building your own `.onnx`
 * [The web demo](docs/web.md): running it all in the browser
 
+## Voice cloning
+
+Clone only your own voice, or one you have explicit permission to use. Do not
+use it to impersonate anyone, to mislead, or in ways that break the law where
+you are. The software is provided as is; what you generate with it is your
+responsibility.
+
 ## License
 
 [CC BY 4.0](LICENSE)

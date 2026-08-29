@@ -10,3 +10,8 @@ node_modules/
 plans/exports/
 .env.local
 exports/
+.claude/
+.agents/
+skills-lock.json
+video/
+video_input.txt

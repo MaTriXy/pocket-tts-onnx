@@ -1,6 +1,6 @@
 import { Box, Button, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
-import { IconMicrophone, IconPlayerStopFilled, IconUpload, IconWaveSine } from "@tabler/icons-react";
+import { IconInfoCircle, IconMicrophone, IconPlayerStopFilled, IconUpload, IconWaveSine } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -176,6 +176,26 @@ export function VoicePanel({
             )}
           </Group>
         </Dropzone>
+
+        {/* Where the voice is taken, not in a footer nobody reads. A quiet
+            grey card with an info mark: a house rule, not a warning. */}
+        <Group
+          gap={8}
+          wrap="nowrap"
+          align="flex-start"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid var(--line)",
+            background: "var(--line-soft)",
+            color: "var(--ink-soft)",
+          }}
+        >
+          <IconInfoCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <Text size="xs" fw={500} c="inherit" style={{ lineHeight: 1.4 }}>
+            {t("voice.consent")}
+          </Text>
+        </Group>
       </Stack>
     </Stack>
   );
