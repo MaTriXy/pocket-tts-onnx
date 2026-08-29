@@ -35,8 +35,8 @@ onnxruntime-web executes its wasm synchronously on whichever thread calls it, so
 running the model on the page blocked React and starved the audio clock. The
 symptom was a status line frozen mid-generation on a fast machine, and playback
 arriving syllable by syllable on a slow one. The model, both phonemizers and the
-voice encoder now live in `lib/worker.ts`; the page only ever receives finished
-frames.
+voice encoder now live in the package's `worker.ts`; the page only ever receives
+finished frames.
 
 That fixes the freeze but not slow hardware, so the player rebuffers rather than
 stutters. It banks about 0.7 seconds before it starts, plays that out, and if
@@ -147,19 +147,23 @@ The runtime is Python-free, so everything the package does before and after the
 graph had to be rewritten in TypeScript, and each piece was checked against the
 Python it came from:
 
+All of it lives in `packages/pocket-tts-onnx/src`, which is published to npm as
+[`pocket-tts-onnx`](../packages/pocket-tts-onnx/) — the site is a consumer of
+the package like any other.
+
 | file | what | checked against Python |
 | --- | --- | --- |
-| `lib/sentencepiece.ts` | unigram tokenizer, byte fallback | 56 cases, exact |
-| `lib/text.ts` | chunking, prompt prep, mixed IPA tokenizer | every case, exact |
-| `lib/g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
-| `lib/mixed.ts` | routing each part of the text to the right phonemizer | shares its cases with Python |
-| `lib/espeak.ts` | English phonemes, from espeak-ng in wasm | same IPA as Python's espeak |
-| `lib/worker.ts` | all of the above, off the main thread | — |
-| `lib/tts.ts` | the streaming loop and its caches | see below |
-| `lib/recorder.ts` | microphone capture and its level meter | — |
-| `lib/onnxMeta.ts` | ONNX metadata without parsing the graph | — |
+| `sentencepiece.ts` | unigram tokenizer, byte fallback | 56 cases, exact |
+| `text.ts` | chunking, prompt prep, mixed IPA tokenizer | every case, exact |
+| `g2p.ts` | renikud Hebrew G2P | 7 sentences, exact |
+| `mixed.ts` | routing each part of the text to the right phonemizer | shares its cases with Python |
+| `espeak.ts` | English phonemes, from espeak-ng in wasm | same IPA as Python's espeak |
+| `worker.ts` | all of the above, off the main thread | — |
+| `tts.ts` | the streaming loop and its caches | see below |
+| `recorder.ts` | microphone capture and its level meter | — |
+| `onnxMeta.ts` | ONNX metadata without parsing the graph | — |
 
-`lib/onnxMeta.ts` exists because onnxruntime-web exposes input and output names
+`onnxMeta.ts` exists because onnxruntime-web exposes input and output names
 but not `metadata_props`, and renikud keeps its vocabularies there. Walking the
 top level of the protobuf is cheap: every field is length-prefixed, so the
 multi-megabyte graph is one skip.

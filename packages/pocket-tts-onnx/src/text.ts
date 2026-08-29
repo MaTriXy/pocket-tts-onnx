@@ -7,7 +7,7 @@
  * IPA, and a phoneme string that already fits is passed through untouched.
  */
 
-import type { SentencePiece } from "./sentencepiece";
+import type { SentencePiece } from "./sentencepiece.js";
 
 const MARKER = /<IPA_U([0-9A-Fa-f]{4,6})>/g;
 const SENTENCE_END = ".!?";

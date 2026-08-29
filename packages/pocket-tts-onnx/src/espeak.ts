@@ -7,9 +7,9 @@
  * plain Hebrew never pays for it.
  */
 
-import wasmUrl from "espeak-ng/dist/espeak-ng.wasm?url";
+import { defaultEspeakWasm } from "#platform";
 
-import { fetchAsset, type Progress } from "./assets";
+import { fetchAsset, type Progress } from "./assets.js";
 
 // espeak's --ipa=3 joins the halves of a diphthong with a zero-width joiner.
 const TIE = /‍/g;
@@ -26,10 +26,17 @@ type Espeak = (options: {
 let binary: ArrayBuffer | null = null;
 let factory: Espeak | null = null;
 
-export async function loadEspeak(onProgress?: (progress: Progress) => void): Promise<void> {
+/**
+ * `url` is where the wasm comes from: a file in node_modules under Node, a
+ * pinned CDN copy in a page, or whatever `espeakWasmUrl` was set to.
+ */
+export async function loadEspeak(
+  url?: string,
+  onProgress?: (progress: Progress) => void,
+): Promise<void> {
   if (binary && factory) return;
   const [bytes, module] = await Promise.all([
-    fetchAsset(wasmUrl, onProgress, "espeak-ng-1.0.2"),
+    fetchAsset(url ?? defaultEspeakWasm(), onProgress, "espeak-ng-1.0.2"),
     import("espeak-ng"),
   ]);
   binary = bytes;

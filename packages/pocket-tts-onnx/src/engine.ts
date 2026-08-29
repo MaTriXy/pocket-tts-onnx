@@ -7,10 +7,27 @@
  * them.
  */
 
-import type { Progress } from "./assets";
-import type { DebugPayload, Manifest, Request, Response, Stage } from "./worker";
+import type { Progress } from "./assets.js";
+import type { Options } from "./options.js";
+import type { DebugPayload, Manifest, Request, Response, Stage } from "./worker.js";
 
 export type { DebugPayload, Manifest, Stage };
+
+export interface EngineOptions extends Options {
+  onProgress?: (stage: Stage, progress: Progress) => void;
+  /**
+   * The worker to run the model in.
+   *
+   * Left out, the engine builds one from `new URL("./worker.js",
+   * import.meta.url)`, which is right for a plain ES module server. Bundlers
+   * mostly cannot follow that into a dependency — Vite inlines the file as a
+   * data URL and loses its imports — so with one of those, hand the worker in:
+   *
+   *     import Worker from "pocket-tts-onnx/worker?worker";  // Vite
+   *     await Engine.load({ worker: () => new Worker() });
+   */
+  worker?: Worker | (() => Worker);
+}
 
 export interface SpeakEvents {
   onStatus?: (status: string) => void;
@@ -26,9 +43,11 @@ export class Engine {
 
   private constructor(
     private readonly worker: Worker,
-    readonly baseUrl: string,
+    /** The folder this engine's model came from, for telling two apart. */
+    readonly modelsUrl: string,
     readonly manifest: Manifest,
     readonly hasPhonemes: boolean,
+    readonly defaultVoice: string,
     readonly defaults: { temperature: number; decodeSteps: number },
   ) {
     worker.onmessage = (event: MessageEvent<Response>) => {
@@ -36,24 +55,31 @@ export class Engine {
     };
   }
 
-  static async load(
-    baseUrl: string,
-    onProgress: (stage: Stage, progress: Progress) => void,
-  ): Promise<Engine> {
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+  static async load({ onProgress, worker: given, ...options }: EngineOptions = {}): Promise<Engine> {
+    const worker =
+      typeof given === "function"
+        ? given()
+        : (given ?? new Worker(new URL("./worker.js", import.meta.url), { type: "module" }));
     return new Promise((resolve, reject) => {
       const id = 0;
       worker.onmessage = (event: MessageEvent<Response>) => {
         const message = event.data;
-        if (message.kind === "progress") onProgress(message.stage, message.progress);
+        if (message.kind === "progress") onProgress?.(message.stage, message.progress);
         else if (message.kind === "ready") {
           resolve(
-            new Engine(worker, baseUrl, message.manifest, message.hasPhonemes, message.defaults),
+            new Engine(
+              worker,
+              message.modelsUrl,
+              message.manifest,
+              message.hasPhonemes,
+              message.defaultVoice,
+              message.defaults,
+            ),
           );
         } else if (message.kind === "error") reject(new Error(message.message));
       };
       worker.onerror = (event) => reject(new Error(event.message || "the worker failed to start"));
-      worker.postMessage({ id, kind: "load", baseUrl } satisfies Request);
+      worker.postMessage({ id, kind: "load", options } satisfies Request);
     });
   }
 

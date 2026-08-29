@@ -1,0 +1,66 @@
+{
+  "name": "pocket-tts-onnx",
+  "version": "0.1.0",
+  "description": "Streaming pocket-tts on onnxruntime, in the browser and in Node.",
+  "license": "CC-BY-4.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thewh1teagle/pocket-tts-onnx.git",
+    "directory": "packages/pocket-tts-onnx"
+  },
+  "keywords": ["tts", "text-to-speech", "onnx", "onnxruntime", "hebrew", "voice-cloning", "wasm"],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "default": "./dist/worker.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "imports": {
+    "#ort": {
+      "types": "./src/ort.web.ts",
+      "node": "./dist/ort.node.js",
+      "default": "./dist/ort.web.js"
+    },
+    "#platform": {
+      "types": "./src/platform.web.ts",
+      "node": "./dist/platform.node.js",
+      "default": "./dist/platform.web.js"
+    }
+  },
+  "files": ["dist", "src", "examples", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "example:english": "tsx examples/english.ts",
+    "example:hebrew": "tsx examples/hebrew.ts"
+  },
+  "dependencies": {
+    "espeak-ng": "^1.0.2",
+    "onnxruntime-web": "^1.29.0"
+  },
+  "optionalDependencies": {
+    "onnxruntime-node": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

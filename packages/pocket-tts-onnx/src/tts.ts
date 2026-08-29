@@ -9,9 +9,10 @@
  * window of the past.
  */
 
-import * as ort from "onnxruntime-web/wasm";
+import { executionProviders } from "#platform";
+import * as ort from "#ort";
 
-import { SentencePiece } from "./sentencepiece";
+import { SentencePiece } from "./sentencepiece.js";
 import {
   MixedTokenizer,
   preparePhonemePrompt,
@@ -19,7 +20,7 @@ import {
   splitIntoBestSentences,
   splitPhonemeChunks,
   type Tokenizer,
-} from "./text";
+} from "./text.js";
 
 const TEXT_GATE = Float32Array.from([1, 0, 0]);
 const LATENT_GATE = Float32Array.from([0, 1, 0]);
@@ -290,7 +291,7 @@ export class PocketTTS {
 
   static async create(model: ArrayBuffer, assets: Assets): Promise<PocketTTS> {
     const session = await ort.InferenceSession.create(model, {
-      executionProviders: ["wasm"],
+      executionProviders: [...executionProviders],
       graphOptimizationLevel: "all",
     });
     return new PocketTTS(session, assets);
@@ -315,7 +316,7 @@ export class PocketTTS {
   /** Load the encoder graph, which is only needed to clone a voice. */
   async loadEncoder(bytes: ArrayBuffer): Promise<void> {
     this.encoder = await ort.InferenceSession.create(bytes, {
-      executionProviders: ["wasm"],
+      executionProviders: [...executionProviders],
       graphOptimizationLevel: "all",
     });
   }

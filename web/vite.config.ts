@@ -48,7 +48,9 @@ export default defineConfig({
     react(),
     devModels(),
     // onnxruntime fetches its own wasm at runtime, so it has to be a real file
-    // next to the bundle rather than something the bundler inlines.
+    // next to the bundle rather than something the bundler inlines. The runtime
+    // itself comes in through `pocket-tts-onnx`; it is a devDependency here only
+    // so these two files have somewhere to be copied from.
     viteStaticCopy({
       targets: [
         { src: "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{wasm,mjs}", dest: "ort" },

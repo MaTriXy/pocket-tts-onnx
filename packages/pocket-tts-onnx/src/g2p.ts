@@ -7,9 +7,10 @@
  * metadata.
  */
 
-import * as ort from "onnxruntime-web/wasm";
+import { executionProviders } from "#platform";
+import * as ort from "#ort";
 
-import { readOnnxMetadata } from "./onnxMeta";
+import { readOnnxMetadata } from "./onnxMeta.js";
 
 const ALEF = "א".codePointAt(0)!;
 const TAV = "ת".codePointAt(0)!;
@@ -43,7 +44,7 @@ export class HebrewG2P {
   static async create(model: ArrayBuffer): Promise<HebrewG2P> {
     const metadata = readOnnxMetadata(model);
     const session = await ort.InferenceSession.create(model, {
-      executionProviders: ["wasm"],
+      executionProviders: [...executionProviders],
       graphOptimizationLevel: "all",
     });
     const numeric = (raw: string): Record<number, string> =>

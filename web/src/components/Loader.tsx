@@ -2,7 +2,7 @@ import { Box, Group, Stack, Text } from "@mantine/core";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import type { Progress as AssetProgress } from "../lib/assets";
+import type { Progress as AssetProgress } from "pocket-tts-onnx";
 
 /** A grey block the shape of something that is on its way. */
 function Bone({ w, h = 12, r = 6, style }: { w: number | string; h?: number; r?: number; style?: React.CSSProperties }) {

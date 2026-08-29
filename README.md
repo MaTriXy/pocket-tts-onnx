@@ -7,6 +7,7 @@ No torch.**
 
 [**Try the demo**](https://huggingface.co/spaces/thewh1teagle/PocketTTS) ·
 [**Download a model**](https://github.com/thewh1teagle/pocket-tts-onnx/releases) ·
+[**TypeScript**](packages/pocket-tts-onnx/) ·
 [**Docs**](docs/usage.md) ·
 [**How it works**](docs/design.md)
 
@@ -63,6 +64,25 @@ and drop it in the working directory. Or skip all of it and
 [run it in your browser](https://huggingface.co/spaces/thewh1teagle/PocketTTS), which
 runs the same model with nothing uploaded.
 
+## In TypeScript
+
+The same model, the same streaming, in a browser tab or in a script:
+
+```bash
+npm install pocket-tts-onnx
+```
+
+```ts
+import { load } from "pocket-tts-onnx";
+
+const tts = await load({ language: "english" });
+const audio = await tts.speak("Hello there.");
+```
+
+The weights are fetched on first use and cached, so nothing large goes through
+npm. See [`packages/pocket-tts-onnx`](packages/pocket-tts-onnx/) for the browser
+worker, voice cloning, Hebrew, and two runnable examples.
+
 ## What else it does
 
 Voice cloning from a few seconds of audio, IPA phoneme input, LoRA adapters that
@@ -72,6 +92,8 @@ cost nothing when off, Hebrew with automatic niqqud, and int8 export.
 
 * [Examples](examples/): writing a wav, streaming to your speakers, Hebrew,
   tuning a take, changing its speed
+* [The TypeScript package](packages/pocket-tts-onnx/): the same thing in a
+  browser tab or in Node
 * [Using it](docs/usage.md): voices, cloning, phonemes, adapters, decode steps
 * [How it works](docs/design.md): the streaming graph, what rides in the file,
   int8, and what was measured against upstream

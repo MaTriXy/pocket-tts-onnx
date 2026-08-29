@@ -37,22 +37,31 @@ import { loadTuning, saveTuning, Settings, type Tuning } from "./components/Sett
 import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
-import { fetchJson, isCached, type Progress } from "./lib/assets";
+import {
+  AVAILABLE,
+  fetchJson,
+  isCached,
+  language,
+  type Manifest,
+  type Mode,
+  type Progress,
+  type Stage,
+} from "pocket-tts-onnx";
 import {
   CEILING_DB,
   decodeAudioFile,
-  encodeWav,
+  encodeWavBlob,
+  Engine,
   FramePlayer,
   gained,
   measure,
   normalGain,
+  Recorder,
   resample,
-} from "./lib/audio";
-import { Engine, type Manifest, type Stage } from "./lib/engine";
-import { AVAILABLE, language, type Mode } from "./lib/languages";
-import { Recorder } from "./lib/recorder";
+} from "pocket-tts-onnx/browser";
 import { prefersHebrew } from "./i18n";
-import { MODELS_URL } from "./lib/runtime";
+import PocketTTSWorker from "pocket-tts-onnx/worker?worker";
+import { ESPEAK_WASM_URL, MODELS_URL, ORT_WASM_URL } from "./models";
 
 
 // Anything in double brackets is already IPA and is spoken exactly as written,
@@ -237,9 +246,17 @@ export function App() {
       setStage("model");
       setProgress(null);
       setMode(next);
-      Engine.load(MODELS_URL + target.model, (nextStage, progress) => {
-        setStage(nextStage);
-        setProgress(progress);
+      Engine.load({
+        // Vite bundles the worker properly when it is handed one; left to
+        // itself it inlines the file as a data URL and loses its imports.
+        worker: () => new PocketTTSWorker(),
+        modelsUrl: MODELS_URL + target.model,
+        ortWasmUrl: ORT_WASM_URL,
+        espeakWasmUrl: ESPEAK_WASM_URL,
+        onProgress: (nextStage, progress) => {
+          setStage(nextStage);
+          setProgress(progress);
+        },
       })
         .then((loaded) => {
           setEngine(loaded);
@@ -274,7 +291,7 @@ export function App() {
   const choose = useCallback(
     async (next: Mode) => {
       const target = language(next);
-      if (engine && engine.baseUrl === MODELS_URL + target.model) {
+      if (engine && engine.modelsUrl === MODELS_URL + target.model) {
         setMode(next);
         return;
       }
@@ -460,7 +477,7 @@ export function App() {
       // Generation is done but the speakers are not. Hold the streaming view,
       // and its stop button, until the last frame has actually been heard.
       await player.drain();
-      if (!controller.signal.aborted) setResult(encodeWav(audio, engine.sampleRate));
+      if (!controller.signal.aborted) setResult(encodeWavBlob(audio, engine.sampleRate));
       player.stop();
       playerRef.current = null;
     } catch (cause) {

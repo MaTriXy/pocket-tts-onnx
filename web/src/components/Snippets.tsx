@@ -2,7 +2,7 @@ import { Anchor, Group, SegmentedControl, Stack, Text } from "@mantine/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { LANGUAGES, type Language as Spoken } from "../lib/languages";
+import { LANGUAGES, type Language as Spoken } from "pocket-tts-onnx";
 import { Code, type Language } from "./Code";
 
 const REPO = "https://github.com/thewh1teagle/pocket-tts-onnx";
