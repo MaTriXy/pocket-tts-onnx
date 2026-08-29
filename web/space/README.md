@@ -6,11 +6,12 @@ colorTo: gray
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Hebrew and English speech in your browser, nothing uploaded
+short_description: Speech in seven languages, in your browser, nothing uploaded
 tags:
   - text-to-speech
   - hebrew
   - nikud
+  - multilingual
   - onnx
   - onnxruntime-web
   - voice-cloning
