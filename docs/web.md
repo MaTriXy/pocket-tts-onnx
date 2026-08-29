@@ -4,7 +4,8 @@
 onnxruntime-web. Nothing is uploaded: the text, the voice you drop in and the
 audio all stay in the tab.
 
-Live at **https://thewh1teagle.github.io/pocket-tts-onnx/**
+Live at **https://huggingface.co/spaces/thewh1teagle/PocketTTS**, and mirrored
+to https://thewh1teagle.github.io/pocket-tts-onnx/
 
 ## Running it
 
