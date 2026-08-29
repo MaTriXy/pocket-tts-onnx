@@ -8,7 +8,7 @@ A model file ships with voices built in; `tts.voices()` lists them.
 samples, sample_rate = tts.create("Hello world.", voice="alba")
 ```
 
-Cloning is its own call, so synthesis never touches the encoder — that session
+Cloning is its own call, so synthesis never touches the encoder. That session
 is built the first time you clone, and generation runs on the step graph alone.
 
 ```python
@@ -60,14 +60,14 @@ tts.create(text, voice=cond, phonemes=True)
 
 | written as | becomes |
 | --- | --- |
-| `[[ʃalˈom]]` | itself, brackets removed — for fixing one word by hand |
+| `[[ʃalˈom]]` | itself, brackets removed (for fixing one word by hand) |
 | Hebrew with nikud, plain or enhanced | itself, kept exactly as typed |
 | unvocalized Hebrew | phonemes from [renikud](https://huggingface.co/thewh1teagle/renikud) |
-| Latin script | phonemes from espeak — pass `language=None` to leave it as written |
+| Latin script | phonemes from espeak (pass `language=None` to leave it as written) |
 
 Nikud is already unambiguous, which is why it is left alone; unvocalized Hebrew
 is not, which is why it needs a phonemizer. To add nikud to a line in the first
-place — plain or with the phonikud stress and prefix marks — use
+place, plain or with the phonikud stress and prefix marks, use
 [phonikud](https://pypi.org/project/phonikud-onnx/). renikud's weights are a separate
 download: pass `model=`, set `$RENIKUD_MODEL`, or let `huggingface_hub` fetch
 them.
@@ -93,7 +93,7 @@ tts.create(text, voice=cond, decode_steps=2)
 
 ONNX has no runtime-length loop here, so export unrolls the head
 `--max-decode-steps` times and gates the copies past `decode_steps` to zero. Any
-count up to the maximum is exactly equal to unrolling that count alone — but the
+count up to the maximum is exactly equal to unrolling that count alone. But the
 maximum is what you pay for, whichever count you ask for:
 
 | exported max | steps=1 | steps=2 | steps=4 |

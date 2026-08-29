@@ -16,7 +16,7 @@ A `.onnx` holds everything the runtime needs:
 
 The graph is one step, not one utterance. Each call takes the keys and values
 and the mimi convolution state produced so far, and returns one latent and one
-80 ms audio frame — so audio leaves the model while the rest of the sentence is
+80 ms audio frame, so audio leaves the model while the rest of the sentence is
 still being generated.
 
 Only the keys and values computed *by that step* come back out. The runtime
@@ -40,7 +40,7 @@ attention projections, plus the retrained final norm and EOS head, ride along as
 deltas multiplied by a `lora` scalar input, and the embedding table simply gains
 rows that plain text never reaches. So `lora=0` is the base model bit for bit,
 `lora=1` is the adapted one, and the cost when it is off is nothing. The Hebrew
-IPA adapter adds 0.73 M parameters — 3 MB.
+IPA adapter adds 0.73 M parameters, or 3 MB.
 
 ## int8
 
@@ -49,10 +49,10 @@ IPA adapter adds 0.73 M parameters — 3 MB.
 | | float32 | int8 |
 | --- | --- | --- |
 | file | 457 MB | 231 MB |
-| RTF | 8.5–9.1x | 10.4–10.6x |
+| RTF | 8.5 to 9.1x | 10.4 to 10.6x |
 
-Only the flow LM transformer's attention and feed-forward matmuls are quantized —
-24 of 174 — which is the set upstream quantizes and measured no WER change on
+Only the flow LM transformer's attention and feed-forward matmuls are quantized,
+24 of 174. That is the set upstream quantizes and measured no WER change on
 (`pocket_tts/quantization.py`). The flow head, mimi, the embeddings, the adapter
 and every convolution stay float32. They are found by weight shape rather than by
 name, and the exporter refuses to continue unless it finds exactly four per
@@ -62,7 +62,7 @@ Judge the result by ear, not by SNR against the float32 output. The flow sampler
 is chaotic, so any perturbation gives a different but equally valid waveform:
 whole-utterance SNR lands near 0 dB even when nothing is wrong, and two float32
 implementations of the same model only reach 29 dB. What is worth reading is the
-first frame, before the loop amplifies anything — 34 to 46 dB — and whether EOS
+first frame, before the loop amplifies anything (34 to 46 dB), and whether EOS
 still fires on the same frame, which it does.
 
 ## What was measured against upstream

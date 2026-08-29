@@ -1,0 +1,86 @@
+# Tasks for pocket-tts-onnx. `chore list` names them all.
+require 1.7.0
+
+RENIKUD_URL=https://huggingface.co/thewh1teagle/renikud/resolve/main/model.onnx
+
+# Export a single-file model, int8, English by default
+task export out=pocket-tts-english.onnx {
+    uv run pocket-tts-onnx-export $1 --quantize
+}
+
+# Export a model with the Hebrew IPA adapter bundled in
+task export-ipa checkpoint=adapter/latest.pt out=pocket-tts-english-ipa.onnx {
+    exists $1 || fail "no adapter checkpoint at $1"
+    uv run pocket-tts-onnx-export $2 --quantize --lora $1
+}
+
+# Export the model the web demo wants: adapter, Hebrew and English voices
+task export-web checkpoint=adapter/latest.pt out=pocket-tts-web.onnx {
+    exists $1 || fail "no adapter checkpoint at $1"
+    uv run pocket-tts-onnx-export $2 --quantize --lora $1 --voices he:omer.wav he:liat.wav en:alba en:anna en:michael
+}
+
+# Fetch renikud's weights, which are a separate download
+task renikud {
+    if exists renikud.onnx {
+        echo "renikud.onnx is already here"
+        return
+    }
+    download $RENIKUD_URL renikud.onnx
+}
+
+# Split a model into the web asset set under web/models
+task web-assets model=pocket-tts-web.onnx {
+    exists $1 || fail "no $1; build one with `chore export-web`"
+    renikud
+    uv run pocket-tts-onnx-web $1 web/models
+    copy renikud.onnx web/models/renikud.onnx
+}
+
+# Install the web app's dependencies, if they are not there yet
+task npm-install {
+    if exists web/node_modules {
+        return
+    }
+    cd web
+    npm install
+}
+
+# Run the web demo against web/models
+task dev {
+    npm-install
+    cd web
+    npm run dev
+}
+
+# Build the web demo into web/dist
+task build {
+    npm-install
+    cd web
+    npm run build
+}
+
+# Serve the built web demo
+task preview {
+    build
+    cd web
+    npm run preview
+}
+
+# Typecheck the web app
+task typecheck {
+    npm-install
+    cd web
+    npm run typecheck
+}
+
+# Run one of the examples: english, hebrew or stream
+task example name=english {
+    exists examples/$1.py || fail "no example named $1"
+    uv run python examples/$1.py
+}
+
+# Delete build output and the audio the examples write
+task clean {
+    remove web/dist build audio.wav
+}

@@ -36,7 +36,7 @@ are shown everywhere.
 The upstream modules keep streaming state in mutable dicts written in place, and
 branch on Python values such as `offset.item()`. Neither survives tracing, so
 `src/pocket_tts_onnx/export/step_model.py` re-expresses the whole per-step
-pipeline as a pure `state in -> state out` function over the upstream weights —
+pipeline as a pure `state in -> state out` function over the upstream weights:
 the same `nn.Linear` and `nn.Conv1d` objects, only the forward logic is new.
 
 ## Two things the exporter has to fix up
