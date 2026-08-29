@@ -5,13 +5,13 @@
 **Streaming text to speech in a single ONNX file. First audio in 80 ms on CPU.
 No torch.**
 
-[**Try the demo**](https://huggingface.co/spaces/thewh1teagle/PocketTTS) ·
+[**Try the demo**](https://thewh1teagle-pockettts.static.hf.space/) ·
 [**Download a model**](https://github.com/thewh1teagle/pocket-tts-onnx/releases) ·
 [**TypeScript**](packages/pocket-tts-onnx/) ·
 [**Docs**](docs/usage.md) ·
 [**How it works**](docs/design.md)
 
-[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm-dark.svg)](https://huggingface.co/spaces/thewh1teagle/PocketTTS)
+[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm-dark.svg)](https://thewh1teagle-pockettts.static.hf.space/)
 [![models](https://img.shields.io/github/v/release/thewh1teagle/pocket-tts-onnx?label=models)](https://github.com/thewh1teagle/pocket-tts-onnx/releases)
 [![python](https://img.shields.io/badge/python-3.13%2B-blue)](pyproject.toml)
 [![runtime](https://img.shields.io/badge/runtime-onnxruntime-005CED)](https://onnxruntime.ai)
@@ -61,7 +61,7 @@ uv pip install git+https://github.com/thewh1teagle/pocket-tts-onnx  # into a ven
 
 Then grab a model from the [releases](https://github.com/thewh1teagle/pocket-tts-onnx/releases)
 and drop it in the working directory. Or skip all of it and
-[run it in your browser](https://huggingface.co/spaces/thewh1teagle/PocketTTS), which
+[run it in your browser](https://thewh1teagle-pockettts.static.hf.space/), which
 runs the same model with nothing uploaded.
 
 ## In TypeScript

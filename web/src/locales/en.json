@@ -46,7 +46,7 @@
     "phonemizing": "phonemizing",
     "warmingUp": "warming up",
     "firstAudio": "first audio in {{ms}} ms",
-    "done": "{{seconds}}s of audio in {{elapsed}}s, {{speed}}× real time",
+    "done": "first audio in {{first}} ms, {{seconds}}s of audio in {{elapsed}}s, {{speed}}× real time",
     "encoding": "encoding",
     "readingFile": "reading the file",
     "cannotReadFile": "could not read that file",

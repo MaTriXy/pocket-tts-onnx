@@ -392,6 +392,9 @@ export function App() {
 
       const started = performance.now();
       const frames: Float32Array[] = [];
+      // Time to first audio. It is the number the page is really about, so it
+      // is measured once here and kept for the line that outlives the run.
+      let firstAudio = 0;
       // Loudness: one gain per take. While streaming it is estimated from what
       // has arrived and locked once there is half a second of actual speech,
       // so the first frames are not judged on a breath.
@@ -427,7 +430,8 @@ export function App() {
       })) {
         if (controller.signal.aborted) break;
         if (!frames.length) {
-          setStatus(t("status.firstAudio", { ms: Math.round(performance.now() - started) }));
+          firstAudio = Math.round(performance.now() - started);
+          setStatus(t("status.firstAudio", { ms: firstAudio }));
         }
         frames.push(frame);
         if (!locked) {
@@ -468,6 +472,7 @@ export function App() {
       const elapsed = (performance.now() - started) / 1000;
       setStatus(
         t("status.done", {
+          first: firstAudio,
           seconds: seconds.toFixed(1),
           elapsed: elapsed.toFixed(1),
           speed: (seconds / elapsed).toFixed(1),

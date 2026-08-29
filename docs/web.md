@@ -4,8 +4,19 @@
 onnxruntime-web. Nothing is uploaded: the text, the voice you drop in and the
 audio all stay in the tab.
 
-Live at **https://huggingface.co/spaces/thewh1teagle/PocketTTS**, and mirrored
-to https://thewh1teagle.github.io/pocket-tts-onnx/
+Live at **https://thewh1teagle-pockettts.static.hf.space/**, and mirrored to
+https://thewh1teagle.github.io/pocket-tts-onnx/
+
+That is the Space's own direct URL, the one its "Embed this Space" dialog
+offers, and every link here points at it rather than at the
+https://huggingface.co/spaces/thewh1teagle/PocketTTS page. The page is a
+wrapper that loads the same origin in an iframe, and a framed document can only
+be cross-origin isolated if its embedder is isolated and hands it the
+`cross-origin-isolated` permission; huggingface.co does neither. So inside the
+wrapper there is no `SharedArrayBuffer`, onnxruntime gets one thread, and the
+demo runs at about 2.2x real time where the direct URL runs at 5.5x. Nothing
+in `coi.js` can lift that, because COOP is a header only a top-level document
+is asked about.
 
 ## Running it
 
