@@ -76,18 +76,28 @@ const EXAMPLES: Record<Mode, Example[]> = {
   ],
   spanish: [
     { label: "hola", text: "Hola, ¿qué tal? Este modelo está corriendo en tu navegador, sin servidor y sin enviar ni un solo byte." },
+    { label: "café", text: "Mañana por la mañana tomaremos un café en la plaza, si no llueve demasiado." },
+    { label: "pregunta", text: "¿Sabías que este modelo cabe en menos de doscientos megabytes?" },
   ],
   french: [
     { label: "bonjour", text: "Bonjour ! Ce modèle tourne entièrement dans votre navigateur, sans serveur et sans rien envoyer." },
+    { label: "matin", text: "Ce matin, le boulanger avait déjà vendu tous ses croissants avant huit heures." },
+    { label: "question", text: "Est-ce que vous saviez que tout cela se passe sans connexion ?" },
   ],
   german: [
     { label: "hallo", text: "Hallo! Dieses Modell läuft komplett in deinem Browser, ohne Server und ohne ein einziges Byte zu senden." },
+    { label: "wetter", text: "Am Wochenende soll es endlich wieder sonnig werden, zumindest im Süden." },
+    { label: "frage", text: "Wusstest du, dass das alles ohne Internetverbindung funktioniert?" },
   ],
   italian: [
     { label: "ciao", text: "Ciao! Questo modello gira interamente nel tuo browser, senza server e senza inviare nulla." },
+    { label: "cena", text: "Stasera prepariamo la pasta al pomodoro, con un po' di basilico fresco." },
+    { label: "domanda", text: "Lo sapevi che tutto questo funziona anche senza connessione?" },
   ],
   portuguese: [
     { label: "olá", text: "Olá! Este modelo roda inteiramente no seu navegador, sem servidor e sem enviar um único byte." },
+    { label: "praia", text: "No domingo fomos à praia bem cedo, antes de o sol ficar forte demais." },
+    { label: "pergunta", text: "Você sabia que tudo isso funciona sem conexão com a internet?" },
   ],
 };
 
