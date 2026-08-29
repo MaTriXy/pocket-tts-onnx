@@ -5,6 +5,44 @@ const GAP = 2;
 const MIN_HEIGHT = 2;
 
 /**
+ * The palette, read back from the stylesheet.
+ *
+ * A canvas takes concrete colours, so the tokens have to be resolved rather
+ * than named. Reading them is a style lookup, too expensive to do per frame,
+ * so the answer is cached and thrown away when the root's colour scheme
+ * changes, which is the only thing that can alter it.
+ */
+function usePalette() {
+  const [palette, setPalette] = useState(() => read());
+  useEffect(() => {
+    const refresh = () => setPalette(read());
+    const observer = new MutationObserver(refresh);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-mantine-color-scheme", "style"],
+    });
+    // `light dark` follows the system, which can change without the attribute.
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", refresh);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", refresh);
+    };
+  }, []);
+  return palette;
+}
+
+function read() {
+  const style = getComputedStyle(document.documentElement);
+  const pick = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+  return {
+    on: pick("--wave-on", "rgb(13 13 12 / 0.9)"),
+    off: pick("--wave-off", "rgb(13 13 12 / 0.22)"),
+    rest: pick("--hairline", "rgb(13 13 12 / 0.07)"),
+  };
+}
+
+/**
  * The take drawn as it arrives, and then scrubbed.
  *
  * One bar per generated frame, filling left to right as the model produces
@@ -16,7 +54,6 @@ export function Waveform({
   levels,
   progress,
   onSeek,
-  fill = false,
   height = 56,
 }: {
   levels: number[];
@@ -27,12 +64,6 @@ export function Waveform({
    * the drag on screen and only move the audio once.
    */
   onSeek?: (fraction: number, done: boolean) => void;
-  /**
-   * Stretch the take across the whole strip instead of letting it grow into
-   * it. A finished take is not going to get any longer, so leaving half the
-   * strip empty would only make the seek bar half as long as it looks.
-   */
-  fill?: boolean;
   height?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,6 +77,9 @@ export function Waveform({
   // so the pointer has to be measured against the bars rather than the canvas.
   const extent = useRef(0);
   const [grabbing, setGrabbing] = useState(false);
+  const palette = usePalette();
+  const colors = useRef(palette);
+  colors.current = palette;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -68,12 +102,12 @@ export function Waveform({
       context.clearRect(0, 0, width, height);
 
       const slots = Math.max(1, Math.floor((width + GAP) / (BAR + GAP)));
-      // Downsampled when there are more frames than bars. Fewer frames than
-      // bars either grow into the strip or, once the take is finished, are
-      // spread across it.
-      const values = bars(state.current.levels, slots, fill);
+      // Downsampled when there are more frames than bars; otherwise one bar per
+      // frame, growing into the strip. The same either way, so nothing about
+      // the drawing moves when the last frame lands.
+      const values = bars(state.current.levels, slots);
       const filled = values.length;
-      extent.current = filled === 0 ? 0 : fill ? width : filled * (BAR + GAP) - GAP;
+      extent.current = filled === 0 ? 0 : filled * (BAR + GAP) - GAP;
 
       const held = scrub.current;
       if (held && !dragging.current) {
@@ -91,7 +125,7 @@ export function Waveform({
         const x = i * (BAR + GAP);
         const y = (height - barHeight) / 2;
         const behind = x + BAR / 2 <= playedX;
-        context.fillStyle = behind ? "rgba(91, 100, 216, 0.95)" : "rgba(91, 100, 216, 0.28)";
+        context.fillStyle = behind ? colors.current.on : colors.current.off;
         context.beginPath();
         context.roundRect(x, y, BAR, barHeight, BAR / 2);
         context.fill();
@@ -100,23 +134,27 @@ export function Waveform({
       // Only while a drag is in flight: the bars alone quantize to 5 px, which
       // is not enough to aim with when you are looking for a word.
       if (dragging.current && filled > 0) {
-        context.fillStyle = "rgba(91, 100, 216, 0.95)";
+        context.fillStyle = colors.current.on;
         context.beginPath();
         context.roundRect(Math.min(playedX, extent.current) - 1, 0, 2, height, 1);
         context.fill();
       }
 
-      // A hairline for the part not generated yet, so the strip has a shape.
-      if (filled < slots) {
-        context.fillStyle = "rgba(13, 13, 12, 0.07)";
-        const x = filled * (BAR + GAP);
-        context.fillRect(x, height / 2 - 0.5, width - x, 1);
+      // The rest of the strip, at rest. Same bars at their minimum height
+      // rather than a hairline, so the take's full length is on screen from the
+      // first frame and the drawing fills in instead of growing into a void.
+      context.fillStyle = colors.current.rest;
+      for (let i = filled; i < slots; i++) {
+        const x = i * (BAR + GAP);
+        context.beginPath();
+        context.roundRect(x, (height - MIN_HEIGHT) / 2, BAR, MIN_HEIGHT, MIN_HEIGHT / 2);
+        context.fill();
       }
     };
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [fill, height]);
+  }, [height]);
 
   const at = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -189,9 +227,9 @@ export function Waveform({
 }
 
 /** Fit any number of frame peaks onto the bars that fit the canvas. */
-function bars(levels: number[], slots: number, fill: boolean): number[] {
+function bars(levels: number[], slots: number): number[] {
   if (levels.length === 0) return [];
-  if (levels.length <= slots && !fill) return levels;
+  if (levels.length <= slots) return levels;
   const out = new Array<number>(slots).fill(0);
   for (let i = 0; i < slots; i++) {
     const from = Math.floor((i * levels.length) / slots);

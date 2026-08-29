@@ -1,3 +1,18 @@
+/*
+ * The palette, in two blocks.
+ *
+ * Written out rather than with `light-dark()`, which postcss-preset-mantine
+ * compiles away at build time into a descendant selector that never matches
+ * the root. Mantine stamps `data-mantine-color-scheme` on <html> with the
+ * resolved value, so the attribute is all either block needs to key off.
+ *
+ * Dark is ElevenLabs': a neutral #0a0a0a page, a #151515 card with a flat 9%
+ * white border and no lit edge, near-white text, the waveform drawn in white
+ * rather than the accent, no wash and next to no shadow. Depth is nothing but
+ * two tones and a border, which is what makes it read as premium black. The
+ * accent survives only where it means something, the selected voice, and is
+ * lifted there since the light one on black reads as a smudge.
+ */
 :root {
   color-scheme: light;
 
@@ -9,7 +24,29 @@
   --line: #e9e9e7;
   --line-soft: #f1f1ef;
   --accent: #5b64d8;
+  /* The accent at the weights it is actually used at, so a theme moves all
+     of them together rather than leaving a hardcoded rgba behind. */
+  --accent-soft: rgb(91 100 216 / 0.12);
+  --accent-ring: rgb(91 100 216 / 0.14);
+  --accent-select: rgb(91 100 216 / 0.18);
+  /* The waveform is ink, not accent: black on the light page and white on
+     the dark one. Drawn on a canvas, which cannot read a var by name, so
+     these are read back resolved and handed to it. */
+  --wave-on: rgb(13 13 12 / 0.9);
+  --wave-off: rgb(13 13 12 / 0.22);
+  --hairline: rgb(13 13 12 / 0.07);
+  /* A hairline of light along the top of a raised surface. Invisible on a
+     white card, and what makes a dark one look lit rather than cut out. */
+  --edge: rgb(255 255 255 / 0.5);
 
+  --danger: #e5484d;
+  /* The download bar runs from a mid tone to the ink, and the sheen crossing
+     it is lighter than the fill in one theme and darker in the other. */
+  --fill-from: #3a3a37;
+  --sheen: rgb(255 255 255 / 0.22);
+
+  --wash-1: rgb(91 100 216 / 0.07);
+  --wash-2: rgb(216 91 160 / 0.05);
   /* Spent only on code, where the colours carry meaning rather than decoration. */
   --code-keyword: #5b64d8;
   --code-string: #1a7f5a;
@@ -18,9 +55,61 @@
   --code-comment: #a1a19c;
   --code-punctuation: #a1a19c;
 
-  --shadow-sm: 0 1px 2px rgba(16, 16, 15, 0.04);
-  --shadow-md: 0 1px 3px rgba(16, 16, 15, 0.05), 0 8px 24px -12px rgba(16, 16, 15, 0.12);
-  --shadow-lg: 0 1px 3px rgba(16, 16, 15, 0.06), 0 20px 48px -24px rgba(16, 16, 15, 0.18);
+  --shadow-sm: 0 1px 2px rgb(16 16 15 / 0.04);
+  --shadow-md: 0 1px 3px rgb(16 16 15 / 0.05), 0 8px 24px -12px rgb(16 16 15 / 0.12);
+  --shadow-lg: 0 1px 3px rgb(16 16 15 / 0.06), 0 20px 48px -24px rgb(16 16 15 / 0.18);
+}
+
+:root[data-mantine-color-scheme="dark"] {
+  color-scheme: dark;
+
+  --paper: #151515;
+  --page: #0a0a0a;
+  --ink: #fafafa;
+  --ink-soft: #a3a3a3;
+  --ink-faint: #6b6b6b;
+  --line: #262626;
+  --line-soft: #1f1f1f;
+  --accent: #8b92f6;
+  /* The accent at the weights it is actually used at, so a theme moves all
+     of them together rather than leaving a hardcoded rgba behind. */
+  --accent-soft: rgb(139 146 246 / 0.16);
+  --accent-ring: rgb(139 146 246 / 0.22);
+  --accent-select: rgb(139 146 246 / 0.26);
+  --wave-on: rgb(250 250 250 / 0.9);
+  --wave-off: rgb(250 250 250 / 0.28);
+  --hairline: rgb(255 255 255 / 0.09);
+  --edge: transparent;
+
+  --danger: #ff6369;
+  /* The download bar runs from a mid tone to the ink, and the sheen crossing
+     it is lighter than the fill in one theme and darker in the other. */
+  --fill-from: #8b8b86;
+  --sheen: rgb(0 0 0 / 0.16);
+
+  --wash-1: transparent;
+  --wash-2: transparent;
+  /* Spent only on code, where the colours carry meaning rather than decoration. */
+  --code-keyword: #a5abff;
+  --code-string: #7fd3ac;
+  --code-number: #e0a06a;
+  --code-call: #85aeea;
+  --code-comment: #6b6b6b;
+  --code-punctuation: #6b6b6b;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 2px 6px rgb(0 0 0 / 0.4), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+}
+
+/* Before Mantine's script has run there is no attribute yet, and the only
+   thing painted is the page behind an empty root. Enough to keep a dark
+   system from flashing white on the way in. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mantine-color-scheme="light"]) {
+    color-scheme: dark;
+    --page: #0a0a0a;
+  }
 }
 
 * {
@@ -56,8 +145,8 @@ body::before {
   inset: 0 0 auto 0;
   height: 420px;
   background:
-    radial-gradient(70% 100% at 20% 0%, rgba(91, 100, 216, 0.07) 0%, transparent 65%),
-    radial-gradient(60% 100% at 85% 0%, rgba(216, 91, 160, 0.05) 0%, transparent 65%);
+    radial-gradient(70% 100% at 20% 0%, var(--wash-1) 0%, transparent 65%),
+    radial-gradient(60% 100% at 85% 0%, var(--wash-2) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -77,14 +166,18 @@ body::before {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 18px;
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    inset 0 1px 0 var(--edge),
+    var(--shadow-md);
 }
 
 .card-quiet {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 var(--edge),
+    var(--shadow-sm);
 }
 
 .mono {
@@ -168,8 +261,8 @@ body::before {
 
 .clone[data-recording="true"] {
   border-style: solid !important;
-  border-color: rgba(229, 72, 77, 0.45) !important;
-  background: rgba(229, 72, 77, 0.03);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--danger) 5%, transparent);
 }
 
 .clone-icon {
@@ -204,7 +297,7 @@ body::before {
 .clone-meter-fill {
   height: 100%;
   border-radius: inherit;
-  background: #e5484d;
+  background: var(--danger);
   transition: width 90ms linear;
 }
 
@@ -212,7 +305,7 @@ body::before {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e5484d;
+  background: var(--danger);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
@@ -222,7 +315,7 @@ body::before {
 }
 
 ::selection {
-  background: rgba(91, 100, 216, 0.18);
+  background: var(--accent-select);
 }
 
 .chip {
@@ -350,7 +443,7 @@ body::before {
 
 .lang-box[data-open="true"] {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(91, 100, 216, 0.14);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .lang-globe {
@@ -418,6 +511,36 @@ body::before {
   color: var(--ink-faint);
 }
 
+/* Three states in one track, the chosen one lifted onto the paper. Quiet
+   enough at rest that it does not compete with the wordmark beside it. */
+.scheme {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.scheme-option {
+  color: var(--ink-faint);
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.scheme-option:hover {
+  color: var(--ink-soft);
+}
+
+.scheme-option[data-active="true"] {
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
 /* Placeholder shapes while the model downloads. */
 .bone {
   background: var(--line-soft);
@@ -442,7 +565,7 @@ body::before {
   position: relative;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #3a3a37, var(--ink));
+  background: linear-gradient(90deg, var(--fill-from), var(--ink));
   transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -451,7 +574,7 @@ body::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 30%, var(--sheen) 50%, transparent 70%);
   background-size: 200% 100%;
   animation: sheen 1.8s ease-in-out infinite;
 }

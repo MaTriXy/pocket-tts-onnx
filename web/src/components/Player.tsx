@@ -108,12 +108,7 @@ export function Player({
         </ActionIcon>
 
         <div style={{ flex: 1 }} dir="ltr">
-          <Waveform
-            levels={levels}
-            progress={duration ? position / duration : 0}
-            onSeek={seek}
-            fill
-          />
+          <Waveform levels={levels} progress={duration ? position / duration : 0} onSeek={seek} />
         </div>
 
         <Text className="mono" dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>

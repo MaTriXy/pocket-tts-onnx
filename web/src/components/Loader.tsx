@@ -103,7 +103,7 @@ export function Loader({
           <Group gap={12} wrap="nowrap" align="center">
             <Bone w={34} h={34} r={999} />
             <Box style={{ flex: 1 }}>
-              <Box h={1} bg="rgba(13, 13, 12, 0.07)" />
+              <Box h={1} bg="var(--hairline)" />
             </Box>
             <Bone w={70} h={12} />
           </Group>

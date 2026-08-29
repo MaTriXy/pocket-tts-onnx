@@ -87,7 +87,7 @@ function Tokens({ info }: { info: DebugInfo }) {
               ...CHIP,
               // Atomic characters are the adapter's own rows; SentencePiece
               // pieces are the base vocabulary.
-              background: token.atomic ? "rgba(91, 100, 216, 0.12)" : "var(--line-soft)",
+              background: token.atomic ? "var(--accent-soft)" : "var(--line-soft)",
               color: token.atomic ? "var(--accent)" : "var(--ink-soft)",
             }}
             title={t("debug.tokenId", { id: token.id })}

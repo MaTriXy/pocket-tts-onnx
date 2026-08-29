@@ -1,7 +1,7 @@
 {
   "app": {
     "badge": "in your browser",
-    "tagline": "Kyutai's speech model on onnxruntime-web, streaming with first audio in about 80 ms. Voice cloning, and nothing leaves your browser.",
+    "tagline": "Hebrew, English and five more languages, spoken in your browser. First audio in about 80 ms, and nothing you type leaves the tab.",
     "github": "Source on GitHub",
     "modes": {
       "english": "English",
@@ -29,7 +29,12 @@
     "footer": "Model by <kyutai>Kyutai</kyutai>, Hebrew phonemes by <renikud>renikud</renikud>",
     "speechLanguage": "Speech language",
     "settings": "Tune the take",
-    "regenerate": "Another take of the same text"
+    "theme": {
+      "label": "Colour scheme",
+      "auto": "Follow the system",
+      "light": "Light",
+      "dark": "Dark"
+    }
   },
   "stage": {
     "model": "Preparing the {{language}} model",

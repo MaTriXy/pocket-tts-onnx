@@ -65,7 +65,7 @@ export function VoicePanel({
                 {voice === cloned?.name ? (
                   <IconWaveSine size={15} color="var(--accent)" />
                 ) : (
-                  <IconMicrophone size={15} color="var(--ink-faint)" />
+                  <IconMicrophone size={15} color="var(--ink-soft)" />
                 )}
                 <Text size="sm" fw={500} truncate tt="capitalize">
                   {voice}

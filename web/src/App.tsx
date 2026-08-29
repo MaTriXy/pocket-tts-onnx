@@ -15,7 +15,6 @@ import {
 import {
   IconAdjustmentsHorizontal,
   IconArrowRight,
-  IconDice5,
   IconBrandGithub,
   IconCode,
   IconMicrophone,
@@ -31,6 +30,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Debug, type DebugInfo } from "./components/Debug";
 import { Examples, type Example } from "./components/Examples";
 import { LanguageSelect } from "./components/LanguageSelect";
+import { ColorScheme } from "./components/ColorScheme";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
 import { loadTuning, saveTuning, Settings, type Tuning } from "./components/Settings";
@@ -60,17 +60,31 @@ import { MODELS_URL } from "./lib/runtime";
 const EXAMPLES: Record<Mode, Example[]> = {
   english: [
     {
-      label: "hello",
-      text: "Hello there. This whole model is running inside your browser, with no server and nothing leaving this tab.",
+      label: "greeting",
+      text: "Good morning, and welcome. This whole model is running inside your browser, with no server and nothing leaving this tab.",
     },
     {
-      label: "phonemes",
+      label: "story",
+      text: "The lighthouse keeper climbed the stairs one last time, and the sea below was calmer than it had been all winter.",
+    },
+    {
+      label: "question",
+      text: "Did you know this whole thing works with the internet switched off?",
+    },
+    {
+      // Custom pronunciation: IPA in double brackets is read as written.
+      label: "custom",
       text: "You can spell a word out yourself: the city of [[bɹˈaɪtən]], for instance.",
     },
   ],
   hebrew: [
     { label: "עברית", text: "הכוח לשנות מתחיל ברגע שבו אתה מאמין שזה אפשרי!", rtl: true },
     { label: "עם אנגלית", text: "אני משתמש ב-Claude Code ועושה vibe coding כל היום.", rtl: true },
+    {
+      label: "סיפור",
+      text: "שומר המגדלור טיפס במדרגות בפעם האחרונה, והים למטה היה שקט יותר מאשר בכל החורף.",
+      rtl: true,
+    },
     {
       label: "ניקוד",
       text: "הַיָּם הָיָה שָׁקֵט, וְהַשֶּׁמֶשׁ שָׁקְעָה מֵאֲחוֹרֵי הַהָרִים.",
@@ -83,7 +97,13 @@ const EXAMPLES: Record<Mode, Example[]> = {
       text: "סֵ֫פֶר טוֹב יָכוֹל לְֽשַׁנּוֹת אֶת הַ|דֶּ֫רֶךְ שֶׁ|בָּהּ אַתָּה חוֹשֵׁב עַל הָ|עוֹלָם.",
       rtl: true,
     },
-    { label: "פונמות", text: "המילה [[ʃalˈom]] נשמעת ככה.", rtl: true },
+    // The Hebrew counterpart of the English "custom" chip: IPA in double
+    // brackets, one word with nikud, and the rest plain, all in one line.
+    {
+      label: "הגייה ידנית",
+      text: "המילים [[psiχolˈoɡja]] ו-[[ʔentsiklopˈedja]] קשות לְהֲגִיָּה, אז כתבנו אותן כמו שהן נשמעות.",
+      rtl: true,
+    },
   ],
   spanish: [
     { label: "hola", text: "Hola, ¿qué tal? Este modelo está corriendo en tu navegador, sin servidor y sin enviar ni un solo byte." },
@@ -342,7 +362,9 @@ export function App() {
       for await (const frame of engine.speak(text, selected, {
         decodeSteps: tuning.decodeSteps,
         temperature: tuning.temperature,
-        // A fresh seed every take, which is what "regenerate" means.
+        // A fresh seed every take. Pressing Generate on text that has not
+        // changed is therefore another take of the same line rather than the
+        // same audio again, which is why there is no separate control for it.
         seed: (Math.random() * 2 ** 32) >>> 0,
         // One extra tokenize of a sentence, next to a voice warmup and a
         // phonemizer: cheap enough to always have the answer ready.
@@ -567,7 +589,8 @@ export function App() {
               {t("app.tagline")}
             </Text>
           </Stack>
-          <Group gap={4}>
+          <Group gap={10} wrap="nowrap">
+            <ColorScheme />
             <Tooltip label={t("app.github")} withArrow>
               <ActionIcon
               component="a"
@@ -618,7 +641,7 @@ export function App() {
                               voice === cloned?.name ? (
                                 <IconWaveSine size={14} color="var(--accent)" />
                               ) : (
-                                <IconMicrophone size={14} color="var(--ink-faint)" />
+                                <IconMicrophone size={14} color="var(--ink-soft)" />
                               )
                             }
                             styles={{ label: { fontWeight: 500, textTransform: "capitalize" } }}
@@ -729,28 +752,15 @@ export function App() {
                           </Button>
                         ) : (
                           <>
-                            {result && (
-                              <Tooltip label={t("app.regenerate")} withArrow>
-                                <ActionIcon
-                                  variant="default"
-                                  size={34}
-                                  radius="xl"
-                                  onClick={speak}
-                                  aria-label={t("app.regenerate")}
-                                >
-                                  <IconDice5 size={16} />
-                                </ActionIcon>
-                              </Tooltip>
-                            )}
-                          <Button
-                            size="sm"
-                            color="ink"
-                            rightSection={<IconArrowRight size={15} />}
-                            onClick={speak}
-                            disabled={!text.trim()}
-                          >
-                            {t("app.generate")}
-                          </Button>
+                            <Button
+                              size="sm"
+                              color="ink"
+                              rightSection={<IconArrowRight size={15} />}
+                              onClick={speak}
+                              disabled={!text.trim()}
+                            >
+                              {t("app.generate")}
+                            </Button>
                           </>
                         )}
                       </Group>
