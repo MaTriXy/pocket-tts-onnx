@@ -35,14 +35,14 @@ import { Player } from "./components/Player";
 import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
-import type { Progress } from "./lib/assets";
+import { fetchJson, isCached, type Progress } from "./lib/assets";
 import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
-import { Engine, type Stage } from "./lib/engine";
+import { Engine, type Manifest, type Stage } from "./lib/engine";
+import { LANGUAGES, language, type Mode } from "./lib/languages";
 import { Recorder } from "./lib/recorder";
 import { prefersHebrew } from "./i18n";
 import { MODELS_URL } from "./lib/runtime";
 
-type Mode = "english" | "hebrew";
 
 // Anything in double brackets is already IPA and is spoken exactly as written,
 // which is how you fix a word the phonemizer gets wrong.
@@ -74,12 +74,26 @@ const EXAMPLES: Record<Mode, Example[]> = {
     },
     { label: "פונמות", text: "המילה [[ʃalˈom]] נשמעת ככה.", rtl: true },
   ],
+  spanish: [
+    { label: "hola", text: "Hola, ¿qué tal? Este modelo está corriendo en tu navegador, sin servidor y sin enviar ni un solo byte." },
+  ],
+  french: [
+    { label: "bonjour", text: "Bonjour ! Ce modèle tourne entièrement dans votre navigateur, sans serveur et sans rien envoyer." },
+  ],
+  german: [
+    { label: "hallo", text: "Hallo! Dieses Modell läuft komplett in deinem Browser, ohne Server und ohne ein einziges Byte zu senden." },
+  ],
+  italian: [
+    { label: "ciao", text: "Ciao! Questo modello gira interamente nel tuo browser, senza server e senza inviare nulla." },
+  ],
+  portuguese: [
+    { label: "olá", text: "Olá! Este modelo roda inteiramente no seu navegador, sem servidor e sem enviar um único byte." },
+  ],
 };
 
-const SAMPLES: Record<Mode, string> = {
-  english: EXAMPLES.english[0].text,
-  hebrew: EXAMPLES.hebrew[0].text,
-};
+const SAMPLES = Object.fromEntries(
+  Object.entries(EXAMPLES).map(([mode, examples]) => [mode, examples[0].text]),
+) as Record<Mode, string>;
 
 // The worker reports its own steps by short English names; these are the keys
 // they are shown under.
@@ -108,6 +122,8 @@ export function App() {
   const [voice, setVoice] = useState("alba");
   const [cloned, setCloned] = useState<ClonedVoice | null>(null);
   const [busy, setBusy] = useState(false);
+  // A language whose model is not here yet, waiting for a yes before it is fetched.
+  const [pending, setPending] = useState<{ mode: Mode; bytes: number } | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
 
   // Everything about the voice lives behind its name in the header: picking
@@ -144,30 +160,67 @@ export function App() {
   const recorder = useRef<Recorder | null>(null);
   const levelsRef = useRef(0);
 
-  useEffect(() => {
-    Engine.load(MODELS_URL, (nextStage, next) => {
-      setStage(nextStage);
-      setProgress(next);
-    })
-      .then((loaded) => {
-        setEngine(loaded);
-        // A Hebrew page on an English-only model still has to speak something.
-        const spoken = loaded.hasPhonemes ? mode : "english";
-        if (spoken !== mode) setMode(spoken);
-        const preferred = spoken === "hebrew" ? "omer" : "alba";
-        setVoice(loaded.voices.includes(preferred) ? preferred : loaded.voices[0]);
+  // Bring up the model for `next`, dropping whichever one is loaded now. The
+  // card goes back to its skeleton meanwhile, with the download in it.
+  const load = useCallback(
+    (next: Mode) => {
+      const target = language(next);
+      engine?.dispose();
+      setEngine(null);
+      setError(null);
+      setStage("model");
+      setProgress(null);
+      setMode(next);
+      Engine.load(MODELS_URL + target.model, (nextStage, progress) => {
+        setStage(nextStage);
+        setProgress(progress);
       })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
-    // Loads once; the mode read here is the one the page opened with.
+        .then((loaded) => {
+          setEngine(loaded);
+          // A Hebrew page on an English-only model still has to speak something.
+          const spoken = next === "hebrew" && !loaded.hasPhonemes ? "english" : next;
+          if (spoken !== next) setMode(spoken);
+          const preferred = language(spoken).voice;
+          setVoice(loaded.voices.includes(preferred) ? preferred : loaded.voices[0]);
+        })
+        .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
+    },
+    [engine],
+  );
+
+  useEffect(() => {
+    load(mode);
+    // Once, for the language the page opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Choosing a language: the loaded model speaks it, or it is cached, or it
+  // has to be fetched — and that last one is asked about first.
+  const choose = useCallback(
+    async (next: Mode) => {
+      const target = language(next);
+      if (engine && engine.baseUrl === MODELS_URL + target.model) {
+        setMode(next);
+        return;
+      }
+      const base = MODELS_URL + target.model;
+      try {
+        const manifest = await fetchJson<Manifest>(base + "manifest.json");
+        if (await isCached(base + manifest.model.file, manifest.model.sha256)) load(next);
+        else setPending({ mode: next, bytes: manifest.model.bytes });
+      } catch (cause) {
+        setStatus(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+    [engine, load],
+  );
 
   useEffect(() => {
     setText(SAMPLES[mode]);
     // A cloned voice belongs to whoever recorded it, so it survives the switch;
     // otherwise land on a voice that speaks the language now selected.
     if (voice === cloned?.name) return;
-    const preferred = mode === "english" ? "alba" : "omer";
+    const preferred = language(mode).voice;
     if (voices.includes(preferred)) setVoice(preferred);
     else if (voices.length && !voices.includes(voice)) setVoice(voices[0]);
     // Only a mode change should move the voice, never a later voice pick.
@@ -413,10 +466,12 @@ export function App() {
   useEffect(() => () => recorder.current?.release(), []);
 
   const modes = useMemo(() => {
-    const options = [{ label: t("app.modes.english"), value: "english", flag: "🇬🇧" }];
-    if (engine?.hasPhonemes) options.push({ label: t("app.modes.hebrew"), value: "hebrew", flag: "🇮🇱" });
-    return options;
-  }, [engine, t]);
+    return LANGUAGES.map((entry) => ({
+      value: entry.value,
+      label: t(`app.modes.${entry.value}`, { defaultValue: entry.label }),
+      flag: entry.flag,
+    }));
+  }, [t]);
 
   const rtl = RTL.test(text);
 
@@ -424,7 +479,7 @@ export function App() {
   // not label, and anything cloned here, stays available in both.
   const voices = useMemo(() => {
     const languages = engine?.manifest.voiceLanguages ?? {};
-    const wanted = mode === "hebrew" ? "he" : "en";
+    const wanted = language(mode).tag;
     const listed = (engine?.voices ?? []).filter(
       (name) => (languages[name] ?? wanted) === wanted,
     );
@@ -466,7 +521,12 @@ export function App() {
 
         <AnimatePresence mode="wait">
           {!engine ? (
-            <Loader key="loader" progress={progress} label={t(`stage.${stage}`)} error={error} />
+            <Loader
+              key="loader"
+              progress={progress}
+              label={t(`stage.${stage}`, { language: language(mode).label })}
+              error={error}
+            />
           ) : (
             <motion.div
               key="studio"
@@ -482,7 +542,7 @@ export function App() {
                         <LanguageSelect
                           value={mode}
                           options={modes}
-                          onChange={(value) => setMode(value as Mode)}
+                          onChange={(value) => void choose(value as Mode)}
                         />
                         <Tooltip label={t("app.pickVoice")} withArrow>
                           <Button
@@ -504,7 +564,7 @@ export function App() {
                         </Tooltip>
                       </Group>
                       <Group gap={6}>
-                        <Text className="mono">{mode === "hebrew" ? t("app.modes.hebrew") : t("app.textLabel")}</Text>
+                        <Text className="mono">{language(mode).label.toLowerCase()}</Text>
                         <Tooltip label={t("app.runFromPython")} withArrow>
                           <ActionIcon
                             variant="subtle"
@@ -629,7 +689,7 @@ export function App() {
           size="lg"
           overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
         >
-          <Snippets mode={mode} />
+          <Snippets spoken={language(mode)} />
         </Modal>
 
         <Modal
@@ -642,6 +702,40 @@ export function App() {
           overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
         >
           <Debug info={debug} pending={debugPending && speaking} />
+        </Modal>
+
+        <Modal
+          opened={pending !== null}
+          onClose={() => setPending(null)}
+          title={t("download.title", { language: pending ? language(pending.mode).label : "" })}
+          centered
+          radius={18}
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+        >
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              {t("download.body", {
+                language: pending ? language(pending.mode).label : "",
+                size: ((pending?.bytes ?? 0) / 1e6).toFixed(0),
+              })}
+            </Text>
+            <Group justify="flex-end" gap={8}>
+              <Button variant="default" size="sm" onClick={() => setPending(null)}>
+                {t("download.cancel")}
+              </Button>
+              <Button
+                size="sm"
+                color="ink"
+                rightSection={<IconArrowRight size={15} />}
+                onClick={() => {
+                  if (pending) load(pending.mode);
+                  setPending(null);
+                }}
+              >
+                {t("download.confirm", { size: ((pending?.bytes ?? 0) / 1e6).toFixed(0) })}
+              </Button>
+            </Group>
+          </Stack>
         </Modal>
 
         <Modal

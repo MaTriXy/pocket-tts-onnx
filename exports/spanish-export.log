@@ -1,0 +1,47 @@
+Loading model from config at /Users/yqbqwlny/Documents/projects/audio/pocket-tts-onnx/.venv/lib/python3.13/site-packages/pocket_tts/config/spanish.yaml...
+Loading sentencepiece tokenizer from hf://kyutai/pocket-tts-without-voice-cloning/languages/spanish/tokenizer.model@d29db7978e464fb90cb3359ee0c69a273b9142cc
+Loading TTSModel weights from hf://kyutai/pocket-tts/languages/spanish/model.safetensors@39592ff23c9ef80098bb74895d104c26275fe2c9
+TTS Model loaded successfully. Its size is 438.0 MB
+Encoding voice lola
+Encoding voice alba
+HTTP Request: HEAD https://huggingface.co/kyutai/tts-voices/resolve/main/alba-mackenna/casual.wav "HTTP/1.1 302 Found"
+Encoding voice javert
+HTTP Request: HEAD https://huggingface.co/kyutai/tts-voices/resolve/main/voice-donations/Butter.wav "HTTP/1.1 302 Found"
+Exporting step graph, up to 4 decode steps (tokens, latent, is_bos, cond, gates, noise, flow_kv, flow_offset, mimi_kv, mimi_offset, mimi_conv, decode_steps)
+/Users/yqbqwlny/Documents/projects/audio/pocket-tts-onnx/.venv/lib/python3.13/site-packages/pocket_tts/modules/rope.py:23: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  assert (B, T, D) == (Bk, Tk, Dk)
+/Users/yqbqwlny/Documents/projects/audio/pocket-tts-onnx/.venv/lib/python3.13/site-packages/pocket_tts/modules/rope.py:24: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  assert D > 0
+/Users/yqbqwlny/Documents/projects/audio/pocket-tts-onnx/.venv/lib/python3.13/site-packages/pocket_tts/modules/rope.py:25: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  assert D % 2 == 0
+/Users/yqbqwlny/Documents/projects/audio/pocket-tts-onnx/src/pocket_tts_onnx/export/step_model.py:35: TracerWarning: Converting a tensor to a Python float might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
+  scores = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(q.shape[-1])
+Folded 13 identity nodes
+Rewrote 102 gemms as matmuls
+Quantizing 24 of 151 matmuls to int8
+Please consider to run pre-processing before quantization. Refer to example: https://github.com/microsoft/onnxruntime-inference-examples/blob/main/quantization/image_classification/cpu/ReadMe.md 
+Quantization parameters for tensor:"/norm1/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_6_output_0" not specified
+Quantization parameters for tensor:"/norm2/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_16_output_0" not specified
+Quantization parameters for tensor:"/norm1_1/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_13_output_0" not specified
+Quantization parameters for tensor:"/norm2_1/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_30_output_0" not specified
+Quantization parameters for tensor:"/norm1_2/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_20_output_0" not specified
+Quantization parameters for tensor:"/norm2_2/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_44_output_0" not specified
+Quantization parameters for tensor:"/norm1_3/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_27_output_0" not specified
+Quantization parameters for tensor:"/norm2_3/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_58_output_0" not specified
+Quantization parameters for tensor:"/norm1_4/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_34_output_0" not specified
+Quantization parameters for tensor:"/norm2_4/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_72_output_0" not specified
+Quantization parameters for tensor:"/norm1_5/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Reshape_41_output_0" not specified
+Quantization parameters for tensor:"/norm2_5/LayerNormalization_output_0" not specified
+Quantization parameters for tensor:"/Mul_86_output_0" not specified
+Wrote exports/pocket-tts-spanish.onnx (227.0 MB)

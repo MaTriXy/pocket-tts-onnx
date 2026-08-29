@@ -117,6 +117,18 @@ Stripping the metadata and the encoder out of the graph takes about 55 MB off
 what a visitor waits for. Downloads stream so the progress bar is real, and land
 in the Cache API, so a second visit pays no network at all.
 
+## One model per language
+
+English and Hebrew share the model that loads first, because Hebrew is an
+adapter on the English weights. Spanish, French, German, Italian and Portuguese
+are separate models upstream, so each is its own asset set in a folder named by
+its code (`es/`, `fr/`, …) beside the first one, built with `chore
+export-languages`. Choosing one of those languages asks before fetching it,
+with the size from its manifest, and the model is cached like the first; going
+back to a language whose model is already cached reloads it without asking.
+French only exists as a 24-layer model, so it is about twice the size of the
+others.
+
 ## Why Hugging Face and not the GitHub release
 
 GitHub serves release assets **without CORS headers**, so a browser cannot fetch

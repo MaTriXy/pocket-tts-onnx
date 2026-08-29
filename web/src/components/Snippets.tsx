@@ -2,6 +2,7 @@ import { Anchor, Group, SegmentedControl, Stack, Text } from "@mantine/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { LANGUAGES, type Language as Spoken } from "../lib/languages";
 import { Code, type Language } from "./Code";
 
 const REPO = "https://github.com/thewh1teagle/pocket-tts-onnx";
@@ -12,23 +13,24 @@ uv add git+${REPO}
 # or into a venv
 uv pip install git+${REPO}`;
 
-const GENERATE = {
-  english: `import soundfile as sf
-from pocket_tts_onnx import PocketTTS
-
-tts = PocketTTS("pocket-tts-english.onnx")
-samples, sample_rate = tts.create("Hello there.", voice="alba")
-sf.write("audio.wav", samples, sample_rate)`,
-  // Hebrew goes through renikud first, which adds the vowels the model needs;
-  // its weights come down from Hugging Face on the first call.
-  hebrew: `import soundfile as sf
+// Hebrew goes through renikud first, which adds the vowels the model needs;
+// its weights come down from Hugging Face on the first call. Every other
+// language is its own model file and reads text as written.
+const generate = (spoken: Spoken) =>
+  spoken.value === "hebrew"
+    ? `import soundfile as sf
 from pocket_tts_onnx import PocketTTS, phonemize_mixed
 
-tts = PocketTTS("pocket-tts-english-ipa.onnx")
-text = phonemize_mixed("שלום, מה שלומך?")
-samples, sample_rate = tts.create(text, voice="omer", phonemes=True)
-sf.write("audio.wav", samples, sample_rate)`,
-};
+tts = PocketTTS("${spoken.file}")
+text = phonemize_mixed("${spoken.line}")
+samples, sample_rate = tts.create(text, voice="${spoken.voice}", phonemes=True)
+sf.write("audio.wav", samples, sample_rate)`
+    : `import soundfile as sf
+from pocket_tts_onnx import PocketTTS
+
+tts = PocketTTS("${spoken.file}")
+samples, sample_rate = tts.create("${spoken.line}", voice="${spoken.voice}")
+sf.write("audio.wav", samples, sample_rate)`;
 
 const STREAM = `# 80 ms of audio at a time, about 20 ms after asking
 for frame in tts.stream("Hello there.", voice="alba"):
@@ -39,7 +41,7 @@ type Tab = "install" | "generate" | "stream";
 // Every tab holds the height of the longest snippet, so switching between them
 // does not resize the dialog under the pointer.
 const LINES = Math.max(
-  ...[INSTALL, STREAM, GENERATE.english, GENERATE.hebrew].map(
+  ...[INSTALL, STREAM, generate(LANGUAGES[0]), generate(LANGUAGES[1])].map(
     (snippet) => snippet.split("\n").length,
   ),
 );
@@ -53,7 +55,7 @@ const LINES = Math.max(
  * the composer, because a snippet that changes as you type is a toy rather
  * than something to copy.
  */
-export function Snippets({ mode }: { mode: "english" | "hebrew" }) {
+export function Snippets({ spoken }: { spoken: Spoken }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("install");
   const tabs = [
@@ -61,7 +63,7 @@ export function Snippets({ mode }: { mode: "english" | "hebrew" }) {
     { label: t("snippets.generate"), value: "generate" },
     { label: t("snippets.stream"), value: "stream" },
   ];
-  const code = tab === "install" ? INSTALL : tab === "stream" ? STREAM : GENERATE[mode];
+  const code = tab === "install" ? INSTALL : tab === "stream" ? STREAM : generate(spoken);
   const language: Language = tab === "install" ? "bash" : "python";
 
   return (
@@ -84,7 +86,7 @@ export function Snippets({ mode }: { mode: "english" | "hebrew" }) {
       <Text className="mono">
         {tab === "install"
           ? t("snippets.noteInstall")
-          : mode === "hebrew" && tab === "generate"
+          : spoken.value === "hebrew" && tab === "generate"
             ? t("snippets.noteHebrew")
             : t("snippets.noteSame")}
       </Text>

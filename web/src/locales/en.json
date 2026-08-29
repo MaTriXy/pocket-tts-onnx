@@ -32,7 +32,7 @@
     "speechLanguage": "Speech language"
   },
   "stage": {
-    "model": "Downloading the voice model",
+    "model": "Downloading the {{language}} model",
     "g2p": "Downloading the Hebrew phonemizer",
     "encoder": "Downloading the voice encoder",
     "espeak": "Downloading the English phonemizer"
@@ -97,5 +97,11 @@
     "speakFor": "Speak for five to ten seconds",
     "working": "working",
     "dropHint": "or drop an audio file to clone a voice"
+  },
+  "download": {
+    "title": "{{language}} is a separate model",
+    "body": "{{language}} has a model of its own, about {{size}} MB. It is fetched once and kept in the browser's cache after that.",
+    "cancel": "Not now",
+    "confirm": "Download {{size}} MB"
   }
 }

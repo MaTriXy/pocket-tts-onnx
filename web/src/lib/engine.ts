@@ -26,6 +26,7 @@ export class Engine {
 
   private constructor(
     private readonly worker: Worker,
+    readonly baseUrl: string,
     readonly manifest: Manifest,
     readonly hasPhonemes: boolean,
   ) {
@@ -45,12 +46,18 @@ export class Engine {
         const message = event.data;
         if (message.kind === "progress") onProgress(message.stage, message.progress);
         else if (message.kind === "ready") {
-          resolve(new Engine(worker, message.manifest, message.hasPhonemes));
+          resolve(new Engine(worker, baseUrl, message.manifest, message.hasPhonemes));
         } else if (message.kind === "error") reject(new Error(message.message));
       };
       worker.onerror = (event) => reject(new Error(event.message || "the worker failed to start"));
       worker.postMessage({ id, kind: "load", baseUrl } satisfies Request);
     });
+  }
+
+  /** Drop the worker and the model in it, to make room for another. */
+  dispose(): void {
+    this.worker.terminate();
+    this.handlers.clear();
   }
 
   get sampleRate(): number {

@@ -37,6 +37,27 @@ task web-assets model=pocket-tts-web.onnx {
     copy renikud.onnx web/models/renikud.onnx
 }
 
+# Export the other languages the web demo offers, one asset set each under
+# web/models/<code>. Each is a model of its own upstream; the voice is the one
+# recorded in that language plus one of the other gender, since conditioning
+# does not care what language the sample was spoken in.
+task export-languages {
+    uv run pocket-tts-onnx-export build/pocket-tts-es.onnx --language spanish --quantize --voices es:lola es:javert
+    uv run pocket-tts-onnx-web build/pocket-tts-es.onnx web/models/es
+    uv run pocket-tts-onnx-export build/pocket-tts-de.onnx --language german --quantize --voices de:juergen de:alba
+    uv run pocket-tts-onnx-web build/pocket-tts-de.onnx web/models/de
+    uv run pocket-tts-onnx-export build/pocket-tts-it.onnx --language italian --quantize --voices it:giovanni it:alba
+    uv run pocket-tts-onnx-web build/pocket-tts-it.onnx web/models/it
+    uv run pocket-tts-onnx-export build/pocket-tts-pt.onnx --language portuguese --quantize --voices pt:rafael pt:alba
+    uv run pocket-tts-onnx-web build/pocket-tts-pt.onnx web/models/pt
+    uv run pocket-tts-onnx-export build/pocket-tts-fr.onnx --language french_24l --quantize --voices fr:estelle fr:javert
+    uv run pocket-tts-onnx-web build/pocket-tts-fr.onnx web/models/fr
+}
+        uv run pocket-tts-onnx-export build/pocket-tts-$code.onnx --language $cfg --quantize --voices $code:$a $code:$b
+        uv run pocket-tts-onnx-web build/pocket-tts-$code.onnx web/models/$code
+    }
+}
+
 # Install the web app's dependencies, if they are not there yet
 task npm-install {
     if exists web/node_modules {

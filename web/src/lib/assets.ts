@@ -23,6 +23,12 @@ async function openCache(): Promise<Cache | null> {
   }
 }
 
+/** Whether this exact asset is already in the cache, without fetching it. */
+export async function isCached(url: string, version?: string): Promise<boolean> {
+  const cache = await openCache();
+  return Boolean(await cache?.match(version ? `${url}#${version}` : url));
+}
+
 /**
  * Fetch an asset, and keep it under a key that changes when it does.
  *
