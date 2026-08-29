@@ -1,4 +1,4 @@
-import { Group, Slider, Stack, Text } from "@mantine/core";
+import { Box, Checkbox, Group, Slider, Stack, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
 export interface Tuning {
@@ -8,9 +8,27 @@ export interface Tuning {
   decodeSteps: number;
   /** Playback rate on the finished take; the wav itself is unchanged. */
   speed: number;
+  /** Show what the model was fed, under the take. */
+  showTokens: boolean;
 }
 
-export const DEFAULT_TUNING: Tuning = { temperature: 0.3, decodeSteps: 2, speed: 1 };
+export const DEFAULT_TUNING: Tuning = { temperature: 0.3, decodeSteps: 2, speed: 1, showTokens: false };
+
+/** The sliders a preset sets; the token view is not part of a mood. */
+type Sound = Pick<Tuning, "temperature" | "decodeSteps" | "speed">;
+
+/** Named settings, for people who would rather pick a word than a number. */
+export const PRESETS: Array<{ key: string; tuning: Sound }> = [
+  { key: "calm", tuning: { temperature: 0.2, decodeSteps: 2, speed: 0.95 } },
+  { key: "natural", tuning: { temperature: 0.3, decodeSteps: 2, speed: 1 } },
+  { key: "expressive", tuning: { temperature: 0.5, decodeSteps: 3, speed: 1 } },
+  { key: "quick", tuning: { temperature: 0.3, decodeSteps: 1, speed: 1.15 } },
+];
+
+const same = (a: Sound, b: Sound) =>
+  Math.abs(a.temperature - b.temperature) < 1e-6 &&
+  a.decodeSteps === b.decodeSteps &&
+  Math.abs(a.speed - b.speed) < 1e-6;
 
 const KEY = "tuning";
 
@@ -95,6 +113,23 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
 
   return (
     <Stack gap="lg">
+      <Group gap={8} wrap="wrap">
+        {PRESETS.map((preset) => (
+          <Box
+            key={preset.key}
+            className="chip"
+            data-active={same(value, preset.tuning)}
+            px={12}
+            py={5}
+            onClick={() => onChange({ ...value, ...preset.tuning })}
+          >
+            <Text size="xs" fw={500}>
+              {t(`settings.presets.${preset.key}`)}
+            </Text>
+          </Box>
+        ))}
+      </Group>
+
       <Stack gap="md">
         <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
           {t("settings.generation")}
@@ -140,11 +175,25 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         />
       </Stack>
 
+      <Stack gap="md">
+        <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
+          {t("settings.underTheHood")}
+        </Text>
+        <Checkbox
+          checked={value.showTokens}
+          onChange={(event) => set({ showTokens: event.currentTarget.checked })}
+          color="ink"
+          size="sm"
+          label={t("settings.showTokens")}
+          description={t("settings.showTokensHint")}
+        />
+      </Stack>
+
       <Group justify="flex-end">
         <Text
           className="mono"
           style={{ cursor: "pointer", textDecoration: "underline" }}
-          onClick={() => onChange(DEFAULT_TUNING)}
+          onClick={() => onChange({ ...DEFAULT_TUNING, showTokens: value.showTokens })}
         >
           {t("settings.reset")}
         </Text>

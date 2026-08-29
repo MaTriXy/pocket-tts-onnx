@@ -17,7 +17,6 @@ import {
   IconArrowRight,
   IconDice5,
   IconBrandGithub,
-  IconBinaryTree2,
   IconCode,
   IconMicrophone,
   IconPlayerPauseFilled,
@@ -146,7 +145,6 @@ export function App() {
   // The code and the tokens are both things you go and look at, not things the
   // composer needs beside it, so each opens over the page and leaves again.
   const [codeOpen, setCodeOpen] = useState(false);
-  const [tokensOpen, setTokensOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tuning, setTuning] = useState<Tuning>(loadTuning);
   useEffect(() => saveTuning(tuning), [tuning]);
@@ -617,18 +615,6 @@ export function App() {
                             <IconAdjustmentsHorizontal size={15} />
                           </ActionIcon>
                         </Tooltip>
-                        <Tooltip label={t("app.showTokens")} withArrow>
-                          <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            size="sm"
-                            radius="xl"
-                            onClick={() => setTokensOpen(true)}
-                            aria-label={t("app.showTokensAria")}
-                          >
-                            <IconBinaryTree2 size={15} />
-                          </ActionIcon>
-                        </Tooltip>
                       </Group>
                     </Group>
 
@@ -732,6 +718,12 @@ export function App() {
                         )}
                       </Group>
                     </Group>
+
+                    {tuning.showTokens && (
+                      <Box className="card-quiet" p={16}>
+                        <Debug info={debug} pending={debugPending && speaking} />
+                      </Box>
+                    )}
                   </Stack>
                 </Box>
 
@@ -761,18 +753,6 @@ export function App() {
           overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
         >
           <Settings value={tuning} onChange={setTuning} />
-        </Modal>
-
-        <Modal
-          opened={tokensOpen}
-          onClose={() => setTokensOpen(false)}
-          title={t("app.modal.tokens")}
-          centered
-          radius={18}
-          size="lg"
-          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
-        >
-          <Debug info={debug} pending={debugPending && speaking} />
         </Modal>
 
         <Modal

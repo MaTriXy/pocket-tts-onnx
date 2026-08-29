@@ -243,6 +243,14 @@ body::before {
   background: var(--line-soft);
 }
 
+/* A chip that is the current choice, in ink. */
+.chip[data-active="true"],
+.chip[data-active="true"]:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .code {
   position: relative;
   direction: ltr;

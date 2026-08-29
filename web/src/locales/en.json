@@ -13,8 +13,6 @@
     "textLabel": "text",
     "runFromPython": "Run this from Python",
     "showCode": "Show the code",
-    "showTokens": "Show how the text is tokenized",
-    "showTokensAria": "Show the tokens",
     "placeholder": "Say something",
     "resume": "Resume",
     "pause": "Pause",
@@ -25,7 +23,6 @@
     "generate": "Generate",
     "modal": {
       "code": "Run it yourself",
-      "tokens": "Tokens",
       "voice": "Voice",
       "settings": "Tuning"
     },
@@ -119,6 +116,15 @@
     "playback": "Playback",
     "speed": "Speed",
     "speedHint": "Pitch stays put. Applies to the finished take; the download is at 1×.",
-    "reset": "reset to defaults"
+    "reset": "reset to defaults",
+    "presets": {
+      "calm": "Calm",
+      "natural": "Natural",
+      "expressive": "Expressive",
+      "quick": "Quick"
+    },
+    "underTheHood": "Under the hood",
+    "showTokens": "Show the tokens",
+    "showTokensHint": "The text as the model received it, under each take."
   }
 }
