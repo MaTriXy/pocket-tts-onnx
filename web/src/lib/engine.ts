@@ -29,6 +29,7 @@ export class Engine {
     readonly baseUrl: string,
     readonly manifest: Manifest,
     readonly hasPhonemes: boolean,
+    readonly defaults: { temperature: number; decodeSteps: number },
   ) {
     worker.onmessage = (event: MessageEvent<Response>) => {
       this.handlers.get(event.data.id)?.(event.data);
@@ -46,7 +47,9 @@ export class Engine {
         const message = event.data;
         if (message.kind === "progress") onProgress(message.stage, message.progress);
         else if (message.kind === "ready") {
-          resolve(new Engine(worker, baseUrl, message.manifest, message.hasPhonemes));
+          resolve(
+            new Engine(worker, baseUrl, message.manifest, message.hasPhonemes, message.defaults),
+          );
         } else if (message.kind === "error") reject(new Error(message.message));
       };
       worker.onerror = (event) => reject(new Error(event.message || "the worker failed to start"));

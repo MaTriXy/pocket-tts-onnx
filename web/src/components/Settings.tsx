@@ -4,10 +4,12 @@ import { useTranslation } from "react-i18next";
 export interface Tuning {
   /** Sampler temperature: 0.1 is flat and safe, 0.8 is lively and risky. */
   temperature: number;
-  /** Flow decode steps, 1 to 4: more is cleaner and slower. */
+  /**
+   * Flow decode steps, 1 to 4: more refines each frame further. The export
+   * unrolls the maximum and gates the copies past this one to zero, so the
+   * count is a matter of sound rather than speed.
+   */
   decodeSteps: number;
-  /** Playback rate on the finished take; the wav itself is unchanged. */
-  speed: number;
   /** Bring every take to the same loudness. Changes the download too. */
   normalize: boolean;
   /** Show what the model was fed, under the take. */
@@ -15,9 +17,8 @@ export interface Tuning {
 }
 
 export const DEFAULT_TUNING: Tuning = {
-  temperature: 0.3,
-  decodeSteps: 2,
-  speed: 1,
+  temperature: 0.2,
+  decodeSteps: 1,
   normalize: true,
   showTokens: false,
 };
@@ -26,26 +27,24 @@ export const DEFAULT_TUNING: Tuning = {
 const VALID: { [K in keyof Tuning]: (value: unknown) => value is Tuning[K] } = {
   temperature: (v): v is number => typeof v === "number" && v >= 0.1 && v <= 0.8,
   decodeSteps: (v): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 4,
-  speed: (v): v is number => typeof v === "number" && v >= 0.7 && v <= 1.4,
   normalize: (v): v is boolean => typeof v === "boolean",
   showTokens: (v): v is boolean => typeof v === "boolean",
 };
 
 /** The sliders a preset sets; the token view is not part of a mood. */
-type Sound = Pick<Tuning, "temperature" | "decodeSteps" | "speed">;
+type Sound = Pick<Tuning, "temperature" | "decodeSteps">;
 
 /** Named settings, for people who would rather pick a word than a number. */
 export const PRESETS: Array<{ key: string; tuning: Sound }> = [
-  { key: "calm", tuning: { temperature: 0.2, decodeSteps: 2, speed: 0.95 } },
-  { key: "natural", tuning: { temperature: 0.3, decodeSteps: 2, speed: 1 } },
-  { key: "expressive", tuning: { temperature: 0.5, decodeSteps: 3, speed: 1 } },
-  { key: "quick", tuning: { temperature: 0.3, decodeSteps: 1, speed: 1.15 } },
+  { key: "calm", tuning: { temperature: 0.2, decodeSteps: 2 } },
+  // Matches DEFAULT_TUNING, so a first visit opens with a preset selected
+  // rather than on nothing.
+  { key: "natural", tuning: { temperature: 0.2, decodeSteps: 1 } },
+  { key: "expressive", tuning: { temperature: 0.5, decodeSteps: 3 } },
 ];
 
 const same = (a: Sound, b: Sound) =>
-  Math.abs(a.temperature - b.temperature) < 1e-6 &&
-  a.decodeSteps === b.decodeSteps &&
-  Math.abs(a.speed - b.speed) < 1e-6;
+  Math.abs(a.temperature - b.temperature) < 1e-6 && a.decodeSteps === b.decodeSteps;
 
 const KEY = "tuning";
 
@@ -133,9 +132,9 @@ function Row({
 /**
  * The few knobs the model actually has, and the one that is not the model's.
  *
- * Temperature and decode steps change what gets generated; speed changes only
- * how the finished take is played back, so they sit under separate headings
- * and nobody expects a downloaded wav to come out faster.
+ * Temperature and decode steps change what gets generated; normalising changes
+ * the take after the fact, so they sit under separate headings and nobody
+ * expects the downloaded wav to match a purely visual setting.
  */
 export function Settings({ value, onChange }: { value: Tuning; onChange: (next: Tuning) => void }) {
   const { t } = useTranslation();
@@ -199,17 +198,6 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
           size="sm"
           label={t("settings.normalize")}
           description={t("settings.normalizeHint")}
-        />
-        <Row
-          label={t("settings.speed")}
-          hint={t("settings.speedHint")}
-          value={value.speed}
-          onChange={(speed) => set({ speed })}
-          min={0.7}
-          max={1.4}
-          step={0.05}
-          format={(n) => `${n.toFixed(2)}×`}
-          marks={[1]}
         />
       </Stack>
 

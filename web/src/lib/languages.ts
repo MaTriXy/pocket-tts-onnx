@@ -24,6 +24,12 @@ export interface Language {
   file: string;
   line: string;
   /**
+   * Sampler temperature to prefer over the one the model was exported with.
+   * Only for languages tuned by ear here; everything else follows its model,
+   * which is the number that language was released with.
+   */
+  temperature?: number;
+  /**
    * Whether `model` actually exists under the models URL. Offering a folder
    * that was never uploaded gets the visitor a 404 instead of speech, so the
    * picker shows only these. Flip it when the assets go up.
@@ -35,10 +41,12 @@ export const LANGUAGES: Language[] = [
   {
     value: "english", label: "English", flag: "🇬🇧", model: "", tag: "en", voice: "alba",
     file: "pocket-tts-english.onnx", line: "Hello there.", published: true,
+    temperature: 0.2,
   },
   {
     value: "hebrew", label: "Hebrew", flag: "🇮🇱", model: "", tag: "he", voice: "omer", rtl: true,
     file: "pocket-tts-english-ipa.onnx", line: "שלום, מה שלומך?", published: true,
+    temperature: 0.2,
   },
   {
     value: "spanish", label: "Spanish", flag: "🇪🇸", model: "es/", tag: "es", voice: "lola",

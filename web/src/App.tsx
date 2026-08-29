@@ -205,6 +205,15 @@ export function App() {
           if (spoken !== next) setMode(spoken);
           const preferred = language(spoken).voice;
           setVoice(loaded.voices.includes(preferred) ? preferred : loaded.voices[0]);
+          // Every language was released with its own sampler temperature, and
+          // the Spanish and French models want 0.7 where English wants 0.3.
+          // Carrying one number across all of them is what makes an unfamiliar
+          // model mumble, so loading one re-seeds the slider from it.
+          setTuning((current) => ({
+            ...current,
+            temperature: language(spoken).temperature ?? loaded.defaults.temperature,
+            decodeSteps: loaded.defaults.decodeSteps,
+          }));
         })
         .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
     },
@@ -669,7 +678,6 @@ export function App() {
                         wav={result}
                         levels={levels}
                         filename={`pocket-tts-${mode}.wav`}
-                        speed={tuning.speed}
                       />
                     ) : (
                       // The same layout as the player, so nothing jumps when

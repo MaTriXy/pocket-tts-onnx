@@ -112,16 +112,13 @@
     "temperature": "Temperature",
     "temperatureHint": "Low is flat and safe, high is lively; past 0.6 it starts to stumble.",
     "steps": "Decode steps",
-    "stepsHint": "More is cleaner and slower. Two is the usual trade.",
+    "stepsHint": "More refines each frame. The speed is the same whichever you pick.",
     "playback": "Playback",
-    "speed": "Speed",
-    "speedHint": "Pitch stays put. Applies to the finished take; the download is at 1×.",
     "reset": "reset to defaults",
     "presets": {
       "calm": "Calm",
       "natural": "Natural",
-      "expressive": "Expressive",
-      "quick": "Quick"
+      "expressive": "Expressive"
     },
     "underTheHood": "Under the hood",
     "showTokens": "Show the tokens",

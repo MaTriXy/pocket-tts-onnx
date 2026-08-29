@@ -46,7 +46,14 @@ export type Request =
 
 export type Response =
   | { id: number; kind: "progress"; stage: Stage; progress: Progress }
-  | { id: number; kind: "ready"; manifest: Manifest; hasPhonemes: boolean }
+  | {
+      id: number;
+      kind: "ready";
+      manifest: Manifest;
+      hasPhonemes: boolean;
+      /** What this model was exported to sample at, which differs per language. */
+      defaults: { temperature: number; decodeSteps: number };
+    }
   | { id: number; kind: "status"; status: string }
   | { id: number; kind: "debug"; debug: DebugPayload }
   | { id: number; kind: "frame"; frame: Float32Array }
@@ -92,7 +99,16 @@ async function load(id: number, url: string): Promise<void> {
     ),
   ]);
   tts = await PocketTTS.create(model, assets);
-  post({ id, kind: "ready", manifest, hasPhonemes: tts.phonemeTokenizer !== null });
+  post({
+    id,
+    kind: "ready",
+    manifest,
+    hasPhonemes: tts.phonemeTokenizer !== null,
+    defaults: {
+      temperature: assets.config.temperature,
+      decodeSteps: assets.config.sampler_decode_steps,
+    },
+  });
 }
 
 async function hebrew(id: number): Promise<HebrewG2P> {
