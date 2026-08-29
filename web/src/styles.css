@@ -28,9 +28,17 @@
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
+  /* No rubber-band bounce at the ends, and no scroll chaining out of a
+     dropdown or the token view into the page behind it. */
+  overscroll-behavior: none;
+}
+
+/* Grows with the page rather than being pinned to the viewport, so content
+   taller than the screen extends the root instead of spilling out of it. */
+#root {
+  min-height: 100%;
 }
 
 body {
@@ -59,7 +67,10 @@ body::before {
   z-index: 1;
   max-width: 880px;
   margin: 0 auto;
-  padding: 72px 24px 120px;
+  /* Breathing room that gives way instead of forcing a scrollbar. On a tall
+     window it is the full 72/120; on a short one it shrinks to a floor, so a
+     page that fits does not scroll just to honour its own margins. */
+  padding: clamp(24px, 6vh, 72px) 24px clamp(32px, 9vh, 120px);
 }
 
 .card {
