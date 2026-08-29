@@ -38,7 +38,7 @@ import { Waveform } from "./components/Waveform";
 import { fetchJson, isCached, type Progress } from "./lib/assets";
 import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
 import { Engine, type Manifest, type Stage } from "./lib/engine";
-import { LANGUAGES, language, type Mode } from "./lib/languages";
+import { AVAILABLE, language, type Mode } from "./lib/languages";
 import { Recorder } from "./lib/recorder";
 import { prefersHebrew } from "./i18n";
 import { MODELS_URL } from "./lib/runtime";
@@ -219,7 +219,16 @@ export function App() {
         if (await isCached(base + manifest.model.file, manifest.model.sha256)) load(next);
         else setPending({ mode: next, bytes: manifest.model.bytes });
       } catch (cause) {
-        setStatus(cause instanceof Error ? cause.message : String(cause));
+        // Nothing at that folder means the language is listed but its assets
+        // were never uploaded, which is worth saying plainly.
+        const missing = cause instanceof Error && cause.message.startsWith("404");
+        setStatus(
+          missing
+            ? `no model published for ${language(next).label} yet`
+            : cause instanceof Error
+              ? cause.message
+              : String(cause),
+        );
       }
     },
     [engine, load],
@@ -476,7 +485,7 @@ export function App() {
   useEffect(() => () => recorder.current?.release(), []);
 
   const modes = useMemo(() => {
-    return LANGUAGES.map((entry) => ({
+    return AVAILABLE.map((entry) => ({
       value: entry.value,
       label: t(`app.modes.${entry.value}`, { defaultValue: entry.label }),
       flag: entry.flag,

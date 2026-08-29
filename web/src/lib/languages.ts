@@ -4,6 +4,10 @@
  * English and Hebrew share the model that loads first: Hebrew is an adapter on
  * the English weights. Every other language is a model of its own, published
  * in a folder of its own, fetched the first time it is chosen.
+ *
+ * The table describes every language the exporter can build. `published` says
+ * which of them have their assets uploaded, and only those are offered: a row
+ * without it is a recipe, not something a visitor can pick.
  */
 export interface Language {
   value: string;
@@ -19,16 +23,22 @@ export interface Language {
   /** The Python model file and a line for the snippet. */
   file: string;
   line: string;
+  /**
+   * Whether `model` actually exists under the models URL. Offering a folder
+   * that was never uploaded gets the visitor a 404 instead of speech, so the
+   * picker shows only these. Flip it when the assets go up.
+   */
+  published?: boolean;
 }
 
 export const LANGUAGES: Language[] = [
   {
     value: "english", label: "English", flag: "🇬🇧", model: "", tag: "en", voice: "alba",
-    file: "pocket-tts-english.onnx", line: "Hello there.",
+    file: "pocket-tts-english.onnx", line: "Hello there.", published: true,
   },
   {
     value: "hebrew", label: "Hebrew", flag: "🇮🇱", model: "", tag: "he", voice: "omer", rtl: true,
-    file: "pocket-tts-english-ipa.onnx", line: "שלום, מה שלומך?",
+    file: "pocket-tts-english-ipa.onnx", line: "שלום, מה שלומך?", published: true,
   },
   {
     value: "spanish", label: "Spanish", flag: "🇪🇸", model: "es/", tag: "es", voice: "lola",
@@ -51,6 +61,9 @@ export const LANGUAGES: Language[] = [
     file: "pocket-tts-portuguese.onnx", line: "Olá, tudo bem?",
   },
 ];
+
+/** The languages a visitor can actually choose. */
+export const AVAILABLE: Language[] = LANGUAGES.filter((entry) => entry.published);
 
 export type Mode = (typeof LANGUAGES)[number]["value"];
 
