@@ -6,7 +6,10 @@
  * network at all.
  */
 
-const CACHE = "pocket-tts-models-v1";
+// v1 keyed entries by `url#digest`, and the Cache API ignores fragments when
+// it matches, so every export of a model landed on the first one ever cached.
+const CACHE = "pocket-tts-models-v2";
+const STALE = ["pocket-tts-models-v1"];
 
 export interface Progress {
   loaded: number;
@@ -14,8 +17,18 @@ export interface Progress {
   cached: boolean;
 }
 
+/**
+ * The cache key for an asset: the URL with its digest as a query string.
+ *
+ * Only the key carries the digest; the fetch itself uses the plain URL. The
+ * Cache API compares query strings but drops fragments, so `?v=` is what makes
+ * a changed model miss.
+ */
+const keyFor = (url: string, version?: string) => (version ? `${url}?v=${version}` : url);
+
 async function openCache(): Promise<Cache | null> {
   try {
+    for (const name of STALE) void caches.delete(name);
     return await caches.open(CACHE);
   } catch {
     // Private windows and some embedded views have no Cache API.
@@ -26,7 +39,7 @@ async function openCache(): Promise<Cache | null> {
 /** Whether this exact asset is already in the cache, without fetching it. */
 export async function isCached(url: string, version?: string): Promise<boolean> {
   const cache = await openCache();
-  return Boolean(await cache?.match(version ? `${url}#${version}` : url));
+  return Boolean(await cache?.match(keyFor(url, version)));
 }
 
 /**
@@ -42,7 +55,7 @@ export async function fetchAsset(
   version?: string,
 ): Promise<ArrayBuffer> {
   const cache = await openCache();
-  const key = version ? `${url}#${version}` : url;
+  const key = keyFor(url, version);
   const hit = await cache?.match(key);
   if (hit) {
     const bytes = await hit.arrayBuffer();
