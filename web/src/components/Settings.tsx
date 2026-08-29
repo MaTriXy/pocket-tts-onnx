@@ -8,11 +8,28 @@ export interface Tuning {
   decodeSteps: number;
   /** Playback rate on the finished take; the wav itself is unchanged. */
   speed: number;
+  /** Bring every take to the same loudness. Changes the download too. */
+  normalize: boolean;
   /** Show what the model was fed, under the take. */
   showTokens: boolean;
 }
 
-export const DEFAULT_TUNING: Tuning = { temperature: 0.3, decodeSteps: 2, speed: 1, showTokens: false };
+export const DEFAULT_TUNING: Tuning = {
+  temperature: 0.3,
+  decodeSteps: 2,
+  speed: 1,
+  normalize: true,
+  showTokens: false,
+};
+
+/** Each field's check, so a stored value that is off is dropped, not trusted. */
+const VALID: { [K in keyof Tuning]: (value: unknown) => value is Tuning[K] } = {
+  temperature: (v): v is number => typeof v === "number" && v >= 0.1 && v <= 0.8,
+  decodeSteps: (v): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 4,
+  speed: (v): v is number => typeof v === "number" && v >= 0.7 && v <= 1.4,
+  normalize: (v): v is boolean => typeof v === "boolean",
+  showTokens: (v): v is boolean => typeof v === "boolean",
+};
 
 /** The sliders a preset sets; the token view is not part of a mood. */
 type Sound = Pick<Tuning, "temperature" | "decodeSteps" | "speed">;
@@ -32,14 +49,27 @@ const same = (a: Sound, b: Sound) =>
 
 const KEY = "tuning";
 
-/** The last tuning this browser used, or the defaults. */
+/**
+ * The last tuning this browser used, or the defaults.
+ *
+ * Storage is not trusted: it may be from an older version, edited by hand,
+ * or missing. Every field is checked and anything that fails falls back to
+ * its default on its own, so one bad value does not cost the rest.
+ */
 export function loadTuning(): Tuning {
+  let stored: unknown = null;
   try {
-    const stored = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Tuning> | null;
-    return { ...DEFAULT_TUNING, ...(stored ?? {}) };
+    stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
   } catch {
     return DEFAULT_TUNING;
   }
+  if (typeof stored !== "object" || stored === null) return DEFAULT_TUNING;
+  const tuning = { ...DEFAULT_TUNING };
+  for (const key of Object.keys(VALID) as Array<keyof Tuning>) {
+    const value = (stored as Record<string, unknown>)[key];
+    if (VALID[key](value)) (tuning as Record<string, unknown>)[key] = value;
+  }
+  return tuning;
 }
 
 export function saveTuning(tuning: Tuning): void {
@@ -162,6 +192,14 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
           {t("settings.playback")}
         </Text>
+        <Checkbox
+          checked={value.normalize}
+          onChange={(event) => set({ normalize: event.currentTarget.checked })}
+          color="ink"
+          size="sm"
+          label={t("settings.normalize")}
+          description={t("settings.normalizeHint")}
+        />
         <Row
           label={t("settings.speed")}
           hint={t("settings.speedHint")}
@@ -193,7 +231,7 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         <Text
           className="mono"
           style={{ cursor: "pointer", textDecoration: "underline" }}
-          onClick={() => onChange({ ...DEFAULT_TUNING, showTokens: value.showTokens })}
+          onClick={() => onChange({ ...DEFAULT_TUNING, normalize: value.normalize, showTokens: value.showTokens })}
         >
           {t("settings.reset")}
         </Text>

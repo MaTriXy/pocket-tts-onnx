@@ -125,6 +125,8 @@
     },
     "underTheHood": "Under the hood",
     "showTokens": "Show the tokens",
-    "showTokensHint": "The text as the model received it, under each take."
+    "showTokensHint": "The text as the model received it, under each take.",
+    "normalize": "Normalize loudness",
+    "normalizeHint": "Every voice at the same level. This one does change the download."
   }
 }

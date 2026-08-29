@@ -38,7 +38,16 @@ import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
 import { fetchJson, isCached, type Progress } from "./lib/assets";
-import { decodeAudioFile, encodeWav, FramePlayer, resample } from "./lib/audio";
+import {
+  CEILING_DB,
+  decodeAudioFile,
+  encodeWav,
+  FramePlayer,
+  gained,
+  measure,
+  normalGain,
+  resample,
+} from "./lib/audio";
 import { Engine, type Manifest, type Stage } from "./lib/engine";
 import { AVAILABLE, language, type Mode } from "./lib/languages";
 import { Recorder } from "./lib/recorder";
@@ -308,6 +317,11 @@ export function App() {
 
       const started = performance.now();
       const frames: Float32Array[] = [];
+      // Loudness: one gain per take. While streaming it is estimated from what
+      // has arrived and locked once there is half a second of actual speech,
+      // so the first frames are not judged on a breath.
+      let gain = 1;
+      let locked = !tuning.normalize;
       // The player banks a lead before it starts and banks again if it runs
       // down, so a slow device pauses rather than stuttering.
       const player = new FramePlayer(engine.sampleRate, (waiting) =>
@@ -339,11 +353,17 @@ export function App() {
           setStatus(t("status.firstAudio", { ms: Math.round(performance.now() - started) }));
         }
         frames.push(frame);
-        player.push(frame as Float32Array<ArrayBuffer>);
+        if (!locked) {
+          const { rms, peak: loudest, samples } = measure(frames);
+          gain = normalGain(rms, loudest);
+          if (rms > 0.005 && samples >= engine.sampleRate / 2) locked = true;
+        }
+        const heardFrame = tuning.normalize ? gained(frame, gain) : (frame as Float32Array<ArrayBuffer>);
+        player.push(heardFrame);
         // The bar for this frame: its peak, lightly compressed so quiet speech
         // still has shape.
         let peak = 0;
-        for (const sample of frame) peak = Math.max(peak, Math.abs(sample));
+        for (const sample of heardFrame) peak = Math.max(peak, Math.abs(sample));
         levelsRef.current = frames.length;
         setLevels((current) => [...current, Math.min(1, Math.pow(peak, 0.7) * 1.4)]);
       }
@@ -356,6 +376,15 @@ export function App() {
       for (const frame of frames) {
         audio.set(frame, at);
         at += frame.length;
+      }
+      // The whole take gets the same gain it was heard with, and the download
+      // is the clean version: a peak that was clipped while streaming brings
+      // the gain down a touch here instead.
+      if (tuning.normalize) {
+        const { peak: loudest } = measure([audio]);
+        const ceiling = Math.pow(10, CEILING_DB / 20);
+        const clean = loudest > 0 ? Math.min(gain, ceiling / loudest) : gain;
+        for (let i = 0; i < audio.length; i++) audio[i] *= clean;
       }
 
       const seconds = total / engine.sampleRate;

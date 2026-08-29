@@ -332,3 +332,55 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   }
   return new Blob([buffer], { type: "audio/wav" });
 }
+
+/**
+ * Loudness normalisation: one gain for a whole take.
+ *
+ * The voices come out at different levels, and a cloned one at whatever level
+ * its clip had. A single gain that brings the take's RMS to a fixed target,
+ * capped so its loudest sample stays under a ceiling, evens them out without
+ * touching the dynamics inside the take. Speech RMS sits well below its peaks,
+ * so the target is in RMS terms and the ceiling is what usually binds on a
+ * shouty take.
+ */
+export const TARGET_RMS_DB = -18;
+export const CEILING_DB = -1;
+
+const db = (value: number) => 20 * Math.log10(Math.max(value, 1e-9));
+const linear = (decibels: number) => Math.pow(10, decibels / 20);
+
+/** RMS and peak of some frames, for the gain that would normalise them. */
+export function measure(frames: Float32Array[]): { rms: number; peak: number; samples: number } {
+  let sum = 0;
+  let peak = 0;
+  let samples = 0;
+  for (const frame of frames) {
+    for (let i = 0; i < frame.length; i++) {
+      const value = frame[i];
+      sum += value * value;
+      if (Math.abs(value) > peak) peak = Math.abs(value);
+    }
+    samples += frame.length;
+  }
+  return { rms: samples ? Math.sqrt(sum / samples) : 0, peak, samples };
+}
+
+/** The gain that takes `rms` to the target without `peak` crossing the ceiling. */
+export function normalGain(rms: number, peak: number): number {
+  if (rms <= 0) return 1;
+  const wanted = linear(TARGET_RMS_DB - db(rms));
+  const most = peak > 0 ? linear(CEILING_DB) / peak : wanted;
+  // Never more than a 4x boost: a near-silent take is a near-silent take.
+  return Math.min(wanted, most, 4);
+}
+
+/** A gained copy of `frame`, hard-clipped at the ceiling. */
+export function gained(frame: Float32Array, gain: number): Float32Array<ArrayBuffer> {
+  const out = new Float32Array(frame.length);
+  const ceiling = linear(CEILING_DB);
+  for (let i = 0; i < frame.length; i++) {
+    const value = frame[i] * gain;
+    out[i] = value > ceiling ? ceiling : value < -ceiling ? -ceiling : value;
+  }
+  return out;
+}
