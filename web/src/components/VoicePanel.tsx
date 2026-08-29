@@ -2,6 +2,7 @@ import { Box, Button, Group, Loader, SimpleGrid, Stack, Text } from "@mantine/co
 import { Dropzone } from "@mantine/dropzone";
 import { IconMicrophone, IconPlayerStopFilled, IconUpload, IconWaveSine } from "@tabler/icons-react";
 import { motion } from "motion/react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface ClonedVoice {
@@ -38,6 +39,8 @@ export function VoicePanel({
 }) {
   const { t } = useTranslation();
   const entries = [...voices, ...(cloned ? [cloned.name] : [])];
+  // The picker opens from the text, never from the buttons beside it.
+  const openPicker = useRef<() => void>(null);
 
   return (
     <Stack gap="sm">
@@ -83,6 +86,8 @@ export function VoicePanel({
 
         <Dropzone
           onDrop={(files) => files[0] && onDrop(files[0])}
+          activateOnClick={false}
+          openRef={openPicker}
           accept={["audio/wav", "audio/x-wav", "audio/mpeg", "audio/ogg", "audio/flac", "audio/mp4", "audio/webm"]}
           maxSize={40 * 1024 ** 2}
           // The busy state is drawn inside the zone instead, so there is only
@@ -93,7 +98,11 @@ export function VoicePanel({
           p="md"
         >
           <Group gap="md" wrap="nowrap" align="center" style={{ minHeight: 44 }}>
-            <Box className="clone-icon">
+            <Box
+              className="clone-icon"
+              onClick={() => !recording && !busy && openPicker.current?.()}
+              style={{ cursor: recording || busy ? "default" : "pointer" }}
+            >
               {recording ? (
                 <Box className="rec-dot" />
               ) : busy ? (
@@ -103,7 +112,11 @@ export function VoicePanel({
               )}
             </Box>
 
-            <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+            <Stack
+              gap={2}
+              style={{ flex: 1, minWidth: 0, cursor: recording || busy ? "default" : "pointer" }}
+              onClick={() => !recording && !busy && openPicker.current?.()}
+            >
               {recording ? (
                 <>
                   <Text size="sm" fw={500}>
