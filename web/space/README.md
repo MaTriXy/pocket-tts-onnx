@@ -1,12 +1,12 @@
 ---
-title: PocketTTS
+title: Pocket TTS
 emoji: 🎙️
 colorFrom: indigo
 colorTo: gray
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Speech in seven languages, in your browser, nothing uploaded
+short_description: Seven languages of speech in your browser, nothing uploaded
 tags:
   - text-to-speech
   - hebrew
