@@ -26,10 +26,13 @@
     "modal": {
       "code": "Run it yourself",
       "tokens": "Tokens",
-      "voice": "Voice"
+      "voice": "Voice",
+      "settings": "Tuning"
     },
     "footer": "Model by <kyutai>Kyutai</kyutai>, Hebrew phonemes by <renikud>renikud</renikud>",
-    "speechLanguage": "Speech language"
+    "speechLanguage": "Speech language",
+    "settings": "Tune the take",
+    "regenerate": "Another take of the same text"
   },
   "stage": {
     "model": "Downloading the {{language}} model",
@@ -106,5 +109,16 @@
     "body": "{{language}} has a model of its own, about {{size}} MB. It is fetched once and kept in the browser's cache after that.",
     "cancel": "Not now",
     "confirm": "Download {{size}} MB"
+  },
+  "settings": {
+    "generation": "Generation",
+    "temperature": "Temperature",
+    "temperatureHint": "Low is flat and safe, high is lively; past 0.6 it starts to stumble.",
+    "steps": "Decode steps",
+    "stepsHint": "More is cleaner and slower. Two is the usual trade.",
+    "playback": "Playback",
+    "speed": "Speed",
+    "speedHint": "Pitch stays put. Applies to the finished take; the download is at 1×.",
+    "reset": "reset to defaults"
   }
 }

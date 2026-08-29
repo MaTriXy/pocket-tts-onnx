@@ -72,7 +72,7 @@ export class Engine {
   async *speak(
     text: string,
     voice: string | Float32Array,
-    options: { decodeSteps?: number; debug?: boolean } & SpeakEvents = {},
+    options: { decodeSteps?: number; temperature?: number; seed?: number; debug?: boolean } & SpeakEvents = {},
   ): AsyncGenerator<Float32Array> {
     const id = this.next++;
     const queue: Float32Array[] = [];
@@ -99,6 +99,8 @@ export class Engine {
       text,
       voice,
       decodeSteps: options.decodeSteps ?? 2,
+      temperature: options.temperature,
+      seed: options.seed,
       debug: options.debug ?? false,
     } satisfies Request);
 

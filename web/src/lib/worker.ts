@@ -30,7 +30,16 @@ export type Stage = "model" | "g2p" | "encoder" | "espeak";
 
 export type Request =
   | { id: number; kind: "load"; baseUrl: string }
-  | { id: number; kind: "speak"; text: string; voice: string | Float32Array; decodeSteps: number; debug: boolean }
+  | {
+      id: number;
+      kind: "speak";
+      text: string;
+      voice: string | Float32Array;
+      decodeSteps: number;
+      temperature?: number;
+      seed?: number;
+      debug: boolean;
+    }
   | { id: number; kind: "clone"; samples: Float32Array }
   | { id: number; kind: "prepare"; voice: string | Float32Array; phonemes: boolean }
   | { id: number; kind: "cancel" };
@@ -114,7 +123,7 @@ async function encoder(id: number): Promise<void> {
 
 async function speak(request: Extract<Request, { kind: "speak" }>): Promise<void> {
   if (!tts) throw new Error("the model has not been loaded");
-  const { id, text, decodeSteps, debug } = request;
+  const { id, text, decodeSteps, temperature, seed, debug } = request;
   const voice = request.voice instanceof Float32Array ? (cloned ?? request.voice) : request.voice;
 
   // The text decides the pipeline: plain English stays on the base model, which
@@ -149,7 +158,7 @@ async function speak(request: Extract<Request, { kind: "speak" }>): Promise<void
   post({ id, kind: "status", status: "warming up" });
   await tts.prepareVoice(voice, phonemes);
 
-  for await (const frame of tts.stream({ text: prompt, voice, phonemes, decodeSteps })) {
+  for await (const frame of tts.stream({ text: prompt, voice, phonemes, decodeSteps, temperature, seed })) {
     if (cancelled) break;
     const copy = frame.slice();
     post({ id, kind: "frame", frame: copy }, [copy.buffer]);

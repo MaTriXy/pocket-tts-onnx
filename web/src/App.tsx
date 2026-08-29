@@ -13,7 +13,9 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconAdjustmentsHorizontal,
   IconArrowRight,
+  IconDice5,
   IconBrandGithub,
   IconBinaryTree2,
   IconCode,
@@ -32,6 +34,7 @@ import { Examples, type Example } from "./components/Examples";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
+import { loadTuning, saveTuning, Settings, type Tuning } from "./components/Settings";
 import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
@@ -144,6 +147,9 @@ export function App() {
   // composer needs beside it, so each opens over the page and leaves again.
   const [codeOpen, setCodeOpen] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tuning, setTuning] = useState<Tuning>(loadTuning);
+  useEffect(() => saveTuning(tuning), [tuning]);
 
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -313,7 +319,10 @@ export function App() {
       await player.start();
 
       for await (const frame of engine.speak(text, selected, {
-        decodeSteps: 2,
+        decodeSteps: tuning.decodeSteps,
+        temperature: tuning.temperature,
+        // A fresh seed every take, which is what "regenerate" means.
+        seed: (Math.random() * 2 ** 32) >>> 0,
         // One extra tokenize of a sentence, next to a voice warmup and a
         // phonemizer: cheap enough to always have the answer ready.
         debug: true,
@@ -376,7 +385,7 @@ export function App() {
       setDebugPending(false);
       abort.current = null;
     }
-  }, [cloned, engine, speaking, stop, t, text, voice]);
+  }, [cloned, engine, speaking, stop, t, text, tuning, voice]);
 
   const adopt = useCallback(
     async (samples: Float32Array, sampleRate: number, name: string) => {
@@ -596,6 +605,18 @@ export function App() {
                             <IconCode size={15} />
                           </ActionIcon>
                         </Tooltip>
+                        <Tooltip label={t("app.settings")} withArrow>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            radius="xl"
+                            onClick={() => setSettingsOpen(true)}
+                            aria-label={t("app.settings")}
+                          >
+                            <IconAdjustmentsHorizontal size={15} />
+                          </ActionIcon>
+                        </Tooltip>
                         <Tooltip label={t("app.showTokens")} withArrow>
                           <ActionIcon
                             variant="subtle"
@@ -629,7 +650,12 @@ export function App() {
                     />
 
                     {result && !speaking ? (
-                      <Player wav={result} levels={levels} filename={`pocket-tts-${mode}.wav`} />
+                      <Player
+                        wav={result}
+                        levels={levels}
+                        filename={`pocket-tts-${mode}.wav`}
+                        speed={tuning.speed}
+                      />
                     ) : (
                       // The same layout as the player, so nothing jumps when
                       // generation ends and the finished take takes over.
@@ -679,6 +705,20 @@ export function App() {
                             {t("app.stop")}
                           </Button>
                         ) : (
+                          <>
+                            {result && (
+                              <Tooltip label={t("app.regenerate")} withArrow>
+                                <ActionIcon
+                                  variant="default"
+                                  size={34}
+                                  radius="xl"
+                                  onClick={speak}
+                                  aria-label={t("app.regenerate")}
+                                >
+                                  <IconDice5 size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            )}
                           <Button
                             size="sm"
                             color="ink"
@@ -688,6 +728,7 @@ export function App() {
                           >
                             {t("app.generate")}
                           </Button>
+                          </>
                         )}
                       </Group>
                     </Group>
@@ -709,6 +750,17 @@ export function App() {
           overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
         >
           <Snippets spoken={language(mode)} />
+        </Modal>
+
+        <Modal
+          opened={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          title={t("app.modal.settings")}
+          centered
+          radius={18}
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+        >
+          <Settings value={tuning} onChange={setTuning} />
         </Modal>
 
         <Modal

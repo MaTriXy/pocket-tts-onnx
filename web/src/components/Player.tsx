@@ -24,7 +24,10 @@ export function Player({
   wav,
   levels,
   filename,
+  speed = 1,
 }: {
+  /** Playback rate, pitch preserved. The wav behind the download is untouched. */
+  speed?: number;
   wav: Blob;
   levels: number[];
   filename: string;
@@ -35,6 +38,14 @@ export function Player({
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // The rate is a property of the element, so it applies mid-play too.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.preservesPitch = true;
+    audio.playbackRate = speed;
+  }, [speed, url]);
 
   useEffect(() => {
     const next = URL.createObjectURL(wav);
