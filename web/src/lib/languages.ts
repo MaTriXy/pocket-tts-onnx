@@ -42,23 +42,23 @@ export const LANGUAGES: Language[] = [
   },
   {
     value: "spanish", label: "Spanish", flag: "🇪🇸", model: "es/", tag: "es", voice: "lola",
-    file: "pocket-tts-spanish.onnx", line: "Hola, ¿qué tal?",
+    file: "pocket-tts-spanish.onnx", line: "Hola, ¿qué tal?", published: true,
   },
   {
     value: "french", label: "French", flag: "🇫🇷", model: "fr/", tag: "fr", voice: "estelle",
-    file: "pocket-tts-french.onnx", line: "Bonjour, comment ça va ?",
+    file: "pocket-tts-french.onnx", line: "Bonjour, comment ça va ?", published: true,
   },
   {
     value: "german", label: "German", flag: "🇩🇪", model: "de/", tag: "de", voice: "juergen",
-    file: "pocket-tts-german.onnx", line: "Hallo, wie geht es dir?",
+    file: "pocket-tts-german.onnx", line: "Hallo, wie geht es dir?", published: true,
   },
   {
     value: "italian", label: "Italian", flag: "🇮🇹", model: "it/", tag: "it", voice: "giovanni",
-    file: "pocket-tts-italian.onnx", line: "Ciao, come stai?",
+    file: "pocket-tts-italian.onnx", line: "Ciao, come stai?", published: true,
   },
   {
     value: "portuguese", label: "Portuguese", flag: "🇧🇷", model: "pt/", tag: "pt", voice: "rafael",
-    file: "pocket-tts-portuguese.onnx", line: "Olá, tudo bem?",
+    file: "pocket-tts-portuguese.onnx", line: "Olá, tudo bem?", published: true,
   },
 ];
 
