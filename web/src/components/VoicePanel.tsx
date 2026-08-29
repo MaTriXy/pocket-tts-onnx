@@ -73,28 +73,13 @@ export function VoicePanel({
         ))}
       </SimpleGrid>
 
-      <Group gap={10} align="stretch" wrap="nowrap">
-        {recording ? (
-          <Button
-            color="ink"
-            variant="filled"
-            onClick={onStopRecording}
-            leftSection={<IconPlayerStopFilled size={14} />}
-            style={{ flexShrink: 0 }}
-          >
-            {t("voice.stopRecording", { seconds: recordSeconds.toFixed(1) })}
-          </Button>
-        ) : (
-          <Button
-            variant="default"
-            onClick={onRecord}
-            disabled={busy}
-            leftSection={<IconMicrophone size={16} />}
-            style={{ flexShrink: 0 }}
-          >
-            {t("voice.record")}
-          </Button>
-        )}
+      <Stack gap={8}>
+        <Group justify="space-between" align="baseline">
+          <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
+            {t("voice.cloneTitle")}
+          </Text>
+          <Text className="mono">{t("voice.cloneHint")}</Text>
+        </Group>
 
         <Dropzone
           onDrop={(files) => files[0] && onDrop(files[0])}
@@ -103,55 +88,79 @@ export function VoicePanel({
           // The busy state is drawn inside the zone instead, so there is only
           // ever one spinner on screen.
           disabled={recording || busy}
-          className="dropzone"
-          px="md"
-          py={9}
-          style={{ flex: 1 }}
+          className="clone"
+          data-recording={recording}
+          p="md"
         >
-          <Group gap="sm" justify="center" wrap="nowrap" style={{ minHeight: 22 }}>
-            {recording ? (
-              <>
+          <Group gap="md" wrap="nowrap" align="center" style={{ minHeight: 44 }}>
+            <Box className="clone-icon">
+              {recording ? (
                 <Box className="rec-dot" />
-                <Box
-                  style={{
-                    width: 120,
-                    height: 4,
-                    borderRadius: 999,
-                    background: "var(--line)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <Box
-                    style={{
-                      width: `${Math.round(recordLevel * 100)}%`,
-                      height: "100%",
-                      background: "var(--accent)",
-                      transition: "width 90ms linear",
-                    }}
-                  />
-                </Box>
-                <Text size="sm" c="dimmed">
-                  {t("voice.speakFor")}
-                </Text>
-              </>
-            ) : busy ? (
-              <>
+              ) : busy ? (
                 <Loader size="xs" color="ink" />
-                <Text size="sm" c="dimmed">
+              ) : (
+                <IconUpload size={17} />
+              )}
+            </Box>
+
+            <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+              {recording ? (
+                <>
+                  <Text size="sm" fw={500}>
+                    {t("voice.listening")}
+                  </Text>
+                  <Box className="clone-meter">
+                    <Box className="clone-meter-fill" style={{ width: `${Math.round(recordLevel * 100)}%` }} />
+                  </Box>
+                </>
+              ) : busy ? (
+                <Text size="sm" fw={500}>
                   {status ?? t("voice.working")}
                 </Text>
-              </>
+              ) : (
+                <>
+                  <Text size="sm" fw={500}>
+                    {t("voice.dropTitle")}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {t("voice.dropHint")}
+                  </Text>
+                </>
+              )}
+            </Stack>
+
+            {recording ? (
+              <Button
+                color="ink"
+                variant="filled"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStopRecording();
+                }}
+                leftSection={<IconPlayerStopFilled size={13} />}
+                style={{ flexShrink: 0 }}
+              >
+                {t("voice.stopRecording", { seconds: recordSeconds.toFixed(1) })}
+              </Button>
             ) : (
-              <>
-                <IconUpload size={15} color="var(--ink-faint)" />
-                <Text size="sm" c="dimmed">
-                  {t("voice.dropHint")}
-                </Text>
-              </>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={busy}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRecord();
+                }}
+                leftSection={<IconMicrophone size={15} />}
+                style={{ flexShrink: 0 }}
+              >
+                {t("voice.record")}
+              </Button>
             )}
           </Group>
         </Dropzone>
-      </Group>
+      </Stack>
     </Stack>
   );
 }

@@ -94,9 +94,12 @@
     "available_other": "{{count}} available",
     "stopRecording": "Stop · {{seconds}}s",
     "record": "Record",
-    "speakFor": "Speak for five to ten seconds",
     "working": "working",
-    "dropHint": "or drop an audio file to clone a voice"
+    "dropHint": "Five to ten seconds of clear speech is plenty",
+    "cloneTitle": "Clone a voice",
+    "cloneHint": "wav, mp3, ogg, flac · up to 40 MB",
+    "dropTitle": "Drop an audio file here, or record one",
+    "listening": "Listening — speak for five to ten seconds"
   },
   "download": {
     "title": "{{language}} is a separate model",
