@@ -58,7 +58,7 @@ export function Loader({
                 {error ? t("loader.failed") : label}
               </Text>
               <Text size="sm" c="dimmed" maw={520}>
-                {error ?? t("loader.intro")}
+                {error ?? t(progress?.cached ? "loader.introCached" : "loader.intro")}
               </Text>
             </Stack>
             {!error && (

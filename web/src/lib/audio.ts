@@ -91,6 +91,24 @@ export async function decodeAudioFile(
  */
 const TARGET_LEAD = 0.7; // seconds of audio to bank before playing
 const MIN_LEAD = 0.1; // below this, stop scheduling and bank again
+const FADE = 0.008; // seconds of ramp either side of a break in the audio
+
+/**
+ * One output device for the life of the page.
+ *
+ * 24 kHz is not what the hardware runs at, so opening a context at that rate
+ * makes the browser set up a resampled output stream, and closing it tears the
+ * stream down. Doing that per take is audible at the edges as a soft thump, so
+ * the context is made once and every take borrows it.
+ */
+let shared: { context: AudioContext; rate: number } | null = null;
+
+function output(sampleRate: number): AudioContext {
+  if (shared?.rate === sampleRate) return shared.context;
+  void shared?.context.close();
+  shared = { context: new AudioContext({ sampleRate }), rate: sampleRate };
+  return shared.context;
+}
 
 export class FramePlayer {
   private context: AudioContext | null = null;
@@ -111,6 +129,10 @@ export class FramePlayer {
   // break the straight line between the two, so it is re-anchored rather than
   // measured from a single start.
   private origin: { time: number; sample: number } | null = null;
+  // Everything is played through this, so a break in the audio can be ramped
+  // rather than cut. Stopping a source mid-waveform is a step to zero, which
+  // is heard as a click.
+  private gain: GainNode | null = null;
 
   constructor(
     private readonly sampleRate: number,
@@ -119,19 +141,48 @@ export class FramePlayer {
 
   async start(): Promise<AnalyserNode> {
     this.stop();
-    const context = new AudioContext({ sampleRate: this.sampleRate });
+    const context = output(this.sampleRate);
     await context.resume();
     const analyser = context.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.75;
     analyser.connect(context.destination);
+    const gain = context.createGain();
+    // Silent until the first frame is scheduled, which then ramps it up.
+    gain.gain.value = 0;
+    gain.connect(analyser);
     this.context = context;
     this.analyser = analyser;
+    this.gain = gain;
     this.cursor = context.currentTime;
     this.playing = false;
     this.finished = false;
     this.origin = null;
     return analyser;
+  }
+
+  /** Ramp up so audio starting at `at` is faded in rather than switched on. */
+  private open(at: number): void {
+    const gain = this.gain;
+    const context = this.context;
+    if (!gain || !context) return;
+    const from = Math.max(at, context.currentTime);
+    gain.gain.cancelScheduledValues(from);
+    gain.gain.setValueAtTime(0, from);
+    gain.gain.linearRampToValueAtTime(1, from + FADE);
+  }
+
+  /** Ramp down so audio ending at `at` is faded out rather than cut. */
+  private close(at: number): number {
+    const gain = this.gain;
+    const context = this.context;
+    if (!gain || !context) return at;
+    const now = context.currentTime;
+    const end = Math.max(at, now + FADE);
+    gain.gain.cancelScheduledValues(Math.max(end - FADE, now));
+    gain.gain.setValueAtTime(gain.gain.value, Math.max(end - FADE, now));
+    gain.gain.linearRampToValueAtTime(0, end);
+    return end;
   }
 
   push(frame: Float32Array<ArrayBuffer>): void {
@@ -162,9 +213,12 @@ export class FramePlayer {
       Math.min(this.totalSamples, Math.round(seconds * this.sampleRate)),
     );
 
+    // Ramp down first, then stop the sources once the ramp has run, so a jump
+    // out of the middle of a word does not step to zero.
+    const silent = this.close(context.currentTime);
     for (const source of this.sources) {
       try {
-        source.stop();
+        source.stop(silent);
       } catch {
         // already finished
       }
@@ -181,8 +235,9 @@ export class FramePlayer {
     this.frameOffset = target - at;
     this.playSample = target;
 
-    // A beat of headroom so the first buffer is not scheduled in the past.
-    this.cursor = context.currentTime + 0.03;
+    // A beat of headroom so the first buffer is not scheduled in the past, and
+    // never before the fade out has finished.
+    this.cursor = Math.max(context.currentTime + 0.03, silent);
     this.origin = { time: this.cursor, sample: target };
     // Let pump decide whether to run: seeking back has a full buffer behind it,
     // seeking to the live edge has nothing and should bank first.
@@ -192,8 +247,8 @@ export class FramePlayer {
 
   private pump(): void {
     const context = this.context;
-    const analyser = this.analyser;
-    if (!context || !analyser) return;
+    const gain = this.gain;
+    if (!context || !gain) return;
 
     const now = context.currentTime;
     if (this.cursor < now) {
@@ -215,6 +270,8 @@ export class FramePlayer {
         this.cursor = from;
         this.origin = { time: from, sample: this.playSample };
       }
+      // Starting, or starting again after banking: fade in at the join.
+      this.open(this.cursor);
     }
 
     while (this.nextFrame < this.frames.length) {
@@ -227,7 +284,7 @@ export class FramePlayer {
       buffer.copyToChannel(slice, 0);
       const source = context.createBufferSource();
       source.buffer = buffer;
-      source.connect(analyser);
+      source.connect(gain);
       if (this.origin === null) this.origin = { time: this.cursor, sample: this.playSample };
       source.start(this.cursor);
       this.cursor += buffer.duration;
@@ -237,9 +294,10 @@ export class FramePlayer {
     }
 
     // Thin on lead and still generating: hold the next frames rather than
-    // scheduling them one gap at a time.
+    // scheduling them one gap at a time, fading out into the pause.
     if (!this.finished && this.cursor - context.currentTime < MIN_LEAD) {
       this.playing = false;
+      this.close(this.cursor);
       this.onBuffering?.(true);
     }
   }
@@ -286,12 +344,27 @@ export class FramePlayer {
   }
 
   stop(): void {
-    for (const source of this.sources) {
+    // Fade out and let the ramp run before the sources go, then drop the nodes
+    // once it has. The context itself stays open for the next take.
+    const silent = this.context ? this.close(this.context.currentTime) : 0;
+    const going = [...this.sources];
+    const analyser = this.analyser;
+    const gain = this.gain;
+    for (const source of going) {
       try {
-        source.stop();
+        source.stop(silent);
       } catch {
         // already finished
       }
+    }
+    if (gain || analyser) {
+      setTimeout(
+        () => {
+          gain?.disconnect();
+          analyser?.disconnect();
+        },
+        Math.ceil(FADE * 1000) + 40,
+      );
     }
     this.sources.clear();
     this.frames.length = 0;
@@ -300,9 +373,9 @@ export class FramePlayer {
     this.frameOffset = 0;
     this.playSample = 0;
     this.origin = null;
-    void this.context?.close();
     this.context = null;
     this.analyser = null;
+    this.gain = null;
     this.playing = false;
   }
 }

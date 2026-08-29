@@ -32,10 +32,10 @@
     "regenerate": "Another take of the same text"
   },
   "stage": {
-    "model": "Downloading the {{language}} model",
-    "g2p": "Downloading the Hebrew phonemizer",
-    "encoder": "Downloading the voice encoder",
-    "espeak": "Downloading the English phonemizer"
+    "model": "Preparing the {{language}} model",
+    "g2p": "Preparing the Hebrew phonemizer",
+    "encoder": "Preparing the voice encoder",
+    "espeak": "Preparing the English phonemizer"
   },
   "status": {
     "preparing": "preparing",
@@ -55,6 +55,7 @@
   "loader": {
     "failed": "Could not load the model",
     "intro": "The model runs on your machine, so it has to get there first. It is cached after this, and nothing you type ever leaves the page.",
+    "introCached": "Already on this machine, so there is nothing to fetch. Nothing you type ever leaves the page.",
     "fromCache": "from cache",
     "ofTotal": "{{loaded}} of {{total}}",
     "connecting": "connecting",

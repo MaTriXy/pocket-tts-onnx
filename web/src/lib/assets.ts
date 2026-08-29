@@ -58,6 +58,12 @@ export async function fetchAsset(
   const key = keyFor(url, version);
   const hit = await cache?.match(key);
   if (hit) {
+    // Say it is a cache hit before reading the body, not after. Pulling a
+    // 177 MB model out of the Cache API is not instant, and waiting until it
+    // lands would leave the page claiming to be downloading for the whole of
+    // it. The stored `content-length` is the size without touching the body.
+    const size = Number(hit.headers.get("content-length") ?? 0);
+    onProgress?.({ loaded: 0, total: size, cached: true });
     const bytes = await hit.arrayBuffer();
     onProgress?.({ loaded: bytes.byteLength, total: bytes.byteLength, cached: true });
     return bytes;
