@@ -88,6 +88,9 @@ export function VoicePanel({
           onDrop={(files) => files[0] && onDrop(files[0])}
           activateOnClick={false}
           openRef={openPicker}
+          // Mantine turns pointer events off inside the zone so drags land on
+          // it; the buttons in here need them back to be buttons.
+          styles={{ inner: { pointerEvents: "auto" } }}
           accept={["audio/wav", "audio/x-wav", "audio/mpeg", "audio/ogg", "audio/flac", "audio/mp4", "audio/webm"]}
           maxSize={40 * 1024 ** 2}
           // The busy state is drawn inside the zone instead, so there is only
