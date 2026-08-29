@@ -1,0 +1,56 @@
+name: Mirror the web demo to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/space.yml"
+  workflow_dispatch:
+
+# One push at a time, and let a newer commit replace a queued one.
+concurrency:
+  group: space
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+
+      - name: Build
+        working-directory: web
+        env:
+          # A Space is served from the root of its own subdomain, unlike Pages.
+          VITE_BASE: /
+          VITE_MODELS_URL: ${{ vars.MODELS_URL }}
+        run: npm run build
+
+      # The Space's own front page, kept in the repository so the description
+      # and tags are reviewed like anything else.
+      - run: cp web/space/README.md web/dist/README.md
+
+      - run: pipx install "huggingface_hub[cli]"
+
+      # `hf upload` rather than `git push`: the two wasm files are over the
+      # 10 MB that Hugging Face requires LFS for, and the CLI does that itself.
+      # `--delete` clears what a build no longer produces, such as a renamed
+      # hashed bundle.
+      - name: Push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          hf upload thewh1teagle/PocketTTS web/dist . \
+            --repo-type=space \
+            --delete "*" \
+            --commit-message "Build ${{ github.sha }}"

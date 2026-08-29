@@ -8,3 +8,5 @@ plans/
 __pycache__/
 node_modules/
 plans/exports/
+.env.local
+exports/

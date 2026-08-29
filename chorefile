@@ -86,6 +86,18 @@ task preview {
     npm run preview
 }
 
+# Build the web demo and push it to the Hugging Face Space
+task space repo=thewh1teagle/PocketTTS {
+    which hf || fail "hf is not on PATH: pipx install \"huggingface_hub[cli]\""
+    npm-install
+    cd web
+    env VITE_BASE /
+    npm run build
+    cd $ROOT
+    copy web/space/README.md web/dist/README.md
+    hf upload $1 web/dist . --repo-type=space --delete "*" --commit-message "Build $(git rev-parse --short HEAD)"
+}
+
 # Typecheck the web app
 task typecheck {
     npm-install
