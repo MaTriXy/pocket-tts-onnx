@@ -6,7 +6,7 @@ colorTo: gray
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Hebrew, English and five more, spoken in your browser, nothing uploaded
+short_description: Hebrew, English and five more, in your browser, offline
 tags:
   - text-to-speech
   - hebrew
