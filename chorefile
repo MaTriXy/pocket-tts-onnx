@@ -37,10 +37,12 @@ task web-assets model=pocket-tts-web.onnx {
     copy renikud.onnx web/models/renikud.onnx
 }
 
-# Export the other languages the web demo offers, one asset set each under
-# web/models/<code>. Each is a model of its own upstream; the voice is the one
-# recorded in that language plus one of the other gender, since conditioning
-# does not care what language the sample was spoken in.
+# Each of these is a model of its own upstream, so each gets an asset set of
+# its own under web/models/<code>. The voices are the one recorded in that
+# language and one of the other gender: conditioning does not care what
+# language its sample was spoken in.
+#
+# Export the other languages the web demo offers, one asset set each
 task export-languages {
     uv run pocket-tts-onnx-export build/pocket-tts-es.onnx --language spanish --quantize --voices es:lola es:javert
     uv run pocket-tts-onnx-web build/pocket-tts-es.onnx web/models/es
@@ -52,7 +54,6 @@ task export-languages {
     uv run pocket-tts-onnx-web build/pocket-tts-pt.onnx web/models/pt
     uv run pocket-tts-onnx-export build/pocket-tts-fr.onnx --language french_24l --quantize --voices fr:estelle fr:javert
     uv run pocket-tts-onnx-web build/pocket-tts-fr.onnx web/models/fr
-}
 }
 
 # Install the web app's dependencies, if they are not there yet
