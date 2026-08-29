@@ -97,11 +97,11 @@ const EXAMPLES: Record<Mode, Example[]> = {
       text: "סֵ֫פֶר טוֹב יָכוֹל לְֽשַׁנּוֹת אֶת הַ|דֶּ֫רֶךְ שֶׁ|בָּהּ אַתָּה חוֹשֵׁב עַל הָ|עוֹלָם.",
       rtl: true,
     },
-    // The Hebrew counterpart of the English "custom" chip: IPA in double
-    // brackets, one word with nikud, and the rest plain, all in one line.
+    // The Hebrew counterpart of the English "custom" chip: three words in IPA
+    // inside double brackets, the rest plain, all in one line.
     {
       label: "הגייה ידנית",
-      text: "המילים [[psiχolˈoɡja]] ו-[[ʔentsiklopˈedja]] קשות לְהֲגִיָּה, אז כתבנו אותן כמו שהן נשמעות.",
+      text: "המילים [[psiχolˈoɡja]] ו-[[ʔentsiklopˈedja]] קשות [[lehaɡiˈja]], אז כתבנו אותן כמו שהן נשמעות.",
       rtl: true,
     },
   ],
