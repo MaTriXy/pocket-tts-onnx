@@ -194,7 +194,6 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         <Switch
           checked={value.normalize}
           onChange={(event) => set({ normalize: event.currentTarget.checked })}
-          color="var(--accent)"
           size="sm"
           label={t("settings.normalize")}
           description={t("settings.normalizeHint")}
@@ -202,7 +201,6 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         <Switch
           checked={value.showTokens}
           onChange={(event) => set({ showTokens: event.currentTarget.checked })}
-          color="var(--accent)"
           size="sm"
           label={t("settings.showTokens")}
           description={t("settings.showTokensHint")}

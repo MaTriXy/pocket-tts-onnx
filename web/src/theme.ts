@@ -100,6 +100,14 @@ export const theme = createTheme({
   headings: { fontWeight: "600", sizes: { h1: { lineHeight: "1.08" } } },
   components: {
     Button: { defaultProps: { radius: "xl" } },
+    // Ink, like every other filled control, and a plain thumb: the indicator
+    // dot Mantine draws inside it reads as a hole. The thumb is paper rather
+    // than Mantine's hardcoded white, so it still shows on the white track a
+    // dark page gets.
+    Switch: {
+      defaultProps: { color: "ink", withThumbIndicator: false },
+      styles: { thumb: { backgroundColor: "var(--paper)", borderColor: "var(--paper)" } },
+    },
     // Checkbox never reaches the variant resolver: it picks its tick with
     // `getContrastColor`, which falls back to the light scheme the same way,
     // so a checked box in dark mode was a white tick on a near-white fill.
