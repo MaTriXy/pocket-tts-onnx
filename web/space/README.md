@@ -6,7 +6,7 @@ colorTo: gray
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Seven languages of speech in your browser, nothing uploaded
+short_description: Hebrew, English and five more, spoken in your browser, nothing uploaded
 tags:
   - text-to-speech
   - hebrew
