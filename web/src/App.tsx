@@ -97,13 +97,12 @@ const EXAMPLES: Record<Mode, Example[]> = {
       text: "סֵ֫פֶר טוֹב יָכוֹל לְֽשַׁנּוֹת אֶת הַ|דֶּ֫רֶךְ שֶׁ|בָּהּ אַתָּה חוֹשֵׁב עַל הָ|עוֹלָם.",
       rtl: true,
     },
-    // The Hebrew counterpart of the English "custom" chip, and both ways of
-    // fixing a word by hand in one line: two spelled out in IPA inside double
-    // brackets, one written with nikud, which needs no brackets because it is
-    // already unambiguous. The rest is plain.
+    // The Hebrew counterpart of the English "custom" chip: two words fixed by
+    // hand inside double brackets, one spelled out in IPA and one in nikud,
+    // since the brackets take either. The rest is plain, and goes to renikud.
     {
       label: "הגייה ידנית",
-      text: "המילים [[psiχolˈoɡja]] ו-[[ʔentsiklopˈedja]] קשות לַהֲגִיָּה, אז כתבנו אותן כמו שהן נשמעות.",
+      text: "המילים [[psiχolˈoɡja]] ו-[[אֶנְצִיקְלוֹפֶּדְיָה]] קשות להגייה, אז כתבנו אותן כמו שהן נשמעות.",
       rtl: true,
     },
   ],

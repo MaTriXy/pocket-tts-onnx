@@ -118,14 +118,12 @@
     "temperatureHint": "Low is flat and safe, high is lively; past 0.6 it starts to stumble.",
     "steps": "Decode steps",
     "stepsHint": "More refines each frame. The speed is the same whichever you pick.",
-    "playback": "Playback",
     "reset": "reset to defaults",
     "presets": {
       "calm": "Calm",
       "natural": "Natural",
       "expressive": "Expressive"
     },
-    "underTheHood": "Under the hood",
     "showTokens": "Show the tokens",
     "showTokensHint": "The text as the model received it, under each take.",
     "normalize": "Normalize loudness",

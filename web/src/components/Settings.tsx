@@ -1,4 +1,4 @@
-import { Box, Checkbox, Group, Slider, Stack, Text } from "@mantine/core";
+import { Box, Group, Slider, Stack, Switch, Text } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 
 export interface Tuning {
@@ -187,33 +187,27 @@ export function Settings({ value, onChange }: { value: Tuning; onChange: (next: 
         />
       </Stack>
 
-      <Stack gap="md">
-        <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
-          {t("settings.playback")}
-        </Text>
-        <Checkbox
+      {/* Two switches rather than two headed sections: one is a property of
+          the take and one is a view of it, but both are simply on or off, and
+          a heading apiece was more structure than that deserves. */}
+      <Group grow align="flex-start" gap="xl" wrap="nowrap">
+        <Switch
           checked={value.normalize}
           onChange={(event) => set({ normalize: event.currentTarget.checked })}
-          color="ink"
+          color="var(--accent)"
           size="sm"
           label={t("settings.normalize")}
           description={t("settings.normalizeHint")}
         />
-      </Stack>
-
-      <Stack gap="md">
-        <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: "0.06em" }} c="dimmed">
-          {t("settings.underTheHood")}
-        </Text>
-        <Checkbox
+        <Switch
           checked={value.showTokens}
           onChange={(event) => set({ showTokens: event.currentTarget.checked })}
-          color="ink"
+          color="var(--accent)"
           size="sm"
           label={t("settings.showTokens")}
           description={t("settings.showTokensHint")}
         />
-      </Stack>
+      </Group>
 
       <Group justify="flex-end">
         <Text
