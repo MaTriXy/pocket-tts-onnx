@@ -1,9 +1,11 @@
 /**
  * The languages the page can speak, and which model each one needs.
  *
- * English and Hebrew share the model that loads first: Hebrew is an adapter on
- * the English weights. Every other language is a model of its own, published
- * in a folder of its own, fetched the first time it is chosen.
+ * Every language is a folder of its own under the models URL, named by its
+ * code. English and Hebrew are the same bytes published twice, since Hebrew is
+ * an adapter on the English weights; the page notices that by digest and does
+ * not fetch, or reload, what it already has. The rest are models of their own,
+ * fetched the first time they are chosen.
  *
  * The table describes every language the exporter can build. `published` says
  * which of them have their assets uploaded, and only those are offered: a row
@@ -13,7 +15,7 @@ export interface Language {
   value: string;
   label: string;
   flag: string;
-  /** Folder under the models URL; empty for the model the page opens with. */
+  /** Folder under the models URL. */
   model: string;
   /** Tag the export gave this language's voices. */
   tag: string;
@@ -39,12 +41,12 @@ export interface Language {
 
 export const LANGUAGES: Language[] = [
   {
-    value: "english", label: "English", flag: "🇬🇧", model: "", tag: "en", voice: "alba",
+    value: "english", label: "English", flag: "🇬🇧", model: "en/", tag: "en", voice: "alba",
     file: "pocket-tts-english.onnx", line: "Hello there.", published: true,
     temperature: 0.2,
   },
   {
-    value: "hebrew", label: "Hebrew", flag: "🇮🇱", model: "", tag: "he", voice: "omer", rtl: true,
+    value: "hebrew", label: "Hebrew", flag: "🇮🇱", model: "he/", tag: "he", voice: "omer", rtl: true,
     file: "pocket-tts-english-ipa.onnx", line: "שלום, מה שלומך?", published: true,
     temperature: 0.2,
   },

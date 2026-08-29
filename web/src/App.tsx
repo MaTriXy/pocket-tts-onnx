@@ -281,6 +281,12 @@ export function App() {
       const base = MODELS_URL + target.model;
       try {
         const manifest = await fetchJson<Manifest>(base + "manifest.json");
+        // English and Hebrew are one model published under two folders, and
+        // the digest says so: nothing to fetch, nothing to reload.
+        if (engine && engine.manifest.model.sha256 === manifest.model.sha256) {
+          setMode(next);
+          return;
+        }
         if (await isCached(base + manifest.model.file, manifest.model.sha256)) load(next);
         else setPending({ mode: next, bytes: manifest.model.bytes });
       } catch (cause) {

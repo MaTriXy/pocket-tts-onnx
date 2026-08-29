@@ -21,8 +21,9 @@ with the exporter:
 ```bash
 uv run pocket-tts-onnx-export pocket-tts-web.onnx --quantize \
     --lora adapter/latest.pt --voices he:omer.wav he:liat.wav en:alba en:anna en:michael
-uv run pocket-tts-onnx-web pocket-tts-web.onnx web/models
-cp renikud.onnx web/models/
+uv run pocket-tts-onnx-web pocket-tts-web.onnx web/models/en
+cp renikud.onnx web/models/en/
+cp -r web/models/en web/models/he
 ```
 
 In production it fetches them from Hugging Face. Point it anywhere else with
@@ -120,11 +121,12 @@ in the Cache API, so a second visit pays no network at all.
 
 ## One model per language
 
-English and Hebrew share the model that loads first, because Hebrew is an
-adapter on the English weights. Spanish, French, German, Italian and Portuguese
-are separate models upstream, so each is its own asset set in a folder named by
-its code (`es/`, `fr/`, …) beside the first one, built with `chore
-export-languages`. Choosing one of those languages asks before fetching it,
+Every language is an asset set in a folder named by its code (`en/`, `he/`,
+`es/`, `fr/`, …). English and Hebrew are the same bytes published twice,
+because Hebrew is an adapter on the English weights; the page compares digests,
+so switching between them fetches nothing and keeps the loaded model. Spanish,
+French, German, Italian and Portuguese are separate models upstream, built with
+`chore export-languages`. Choosing one of those languages asks before fetching it,
 with the size from its manifest, and the model is cached like the first; going
 back to a language whose model is already cached reloads it without asking.
 French only exists as a 24-layer model, so it is about twice the size of the

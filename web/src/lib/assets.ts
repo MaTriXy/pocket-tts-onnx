@@ -18,13 +18,17 @@ export interface Progress {
 }
 
 /**
- * The cache key for an asset: the URL with its digest as a query string.
+ * The cache key for an asset: its digest, when the manifest gives one.
  *
- * Only the key carries the digest; the fetch itself uses the plain URL. The
- * Cache API compares query strings but drops fragments, so `?v=` is what makes
- * a changed model miss.
+ * Only the key carries the digest; the fetch itself uses the plain URL. Keyed
+ * by digest rather than by URL, the same bytes published under two folders,
+ * as `en/` and `he/` are, cost one download, and a changed model under the
+ * same name simply misses. The Cache API wants a URL for a key, and compares
+ * query strings but drops fragments, so the digest rides in `?v=` on the
+ * file's name alone.
  */
-const keyFor = (url: string, version?: string) => (version ? `${url}?v=${version}` : url);
+const keyFor = (url: string, version?: string) =>
+  version ? `${url.slice(url.lastIndexOf("/") + 1)}?v=${version}` : url;
 
 async function openCache(): Promise<Cache | null> {
   try {
