@@ -61,6 +61,20 @@ export function Debug({ info, pending }: { info: DebugInfo | null; pending: bool
   );
 }
 
+/**
+ * A token as it can actually be seen.
+ *
+ * A nikud mark is a combining character, so on its own it has nothing to sit
+ * on and the chip renders as an empty box. U+25CC DOTTED CIRCLE is the
+ * placeholder Unicode provides for exactly this, and it is what the standard's
+ * own charts use, so `ָ` shows as `◌ָ` rather than as a gap. A space gets the
+ * same treatment with the open box.
+ */
+function visible(piece: string): string {
+  if (piece === " ") return "␣";
+  return /^\p{M}+$/u.test(piece) ? `\u25CC${piece}` : piece;
+}
+
 function Tokens({ info }: { info: DebugInfo }) {
   const { t } = useTranslation();
   return (
@@ -92,7 +106,7 @@ function Tokens({ info }: { info: DebugInfo }) {
             }}
             title={t("debug.tokenId", { id: token.id })}
           >
-            {token.piece === " " ? "␣" : token.piece}
+            {visible(token.piece)}
           </Box>
         ))}
       </Group>
