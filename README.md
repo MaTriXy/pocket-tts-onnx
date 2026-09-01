@@ -5,7 +5,7 @@
 **Streaming text to speech in a single ONNX file. First audio in 80 ms on CPU.
 No torch.**
 
-[**Try the demo**](https://thewh1teagle-pockettts.static.hf.space/) ·
+[**Try the demo**](https://huggingface.co/spaces/thewh1teagle/PocketTTS) ·
 [**Download a model**](https://github.com/thewh1teagle/pocket-tts-onnx/releases) ·
 [**TypeScript**](packages/pocket-tts-onnx/) ·
 [**Docs**](docs/usage.md) ·
