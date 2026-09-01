@@ -359,6 +359,16 @@ body::before {
   tab-size: 4;
 }
 
+/* A link is one long word with no break in it. It wraps rather than scrolling
+   off the edge, because its length is part of what is being decided about. */
+.share-link {
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 8.5em;
+  overflow-y: auto;
+}
+
 .code-copy {
   position: absolute;
   top: 6px;

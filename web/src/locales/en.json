@@ -3,6 +3,7 @@
     "badge": "in your browser",
     "tagline": "Hebrew, English and five more languages, spoken in your browser. First audio in about 80 ms, and nothing you type leaves the tab.",
     "github": "Source on GitHub",
+    "share": "Share this page",
     "modes": {
       "english": "English",
       "hebrew": "Hebrew",
@@ -24,7 +25,8 @@
     "modal": {
       "code": "Run it yourself",
       "voice": "Voice",
-      "settings": "Tuning"
+      "settings": "Tuning",
+      "share": "Share"
     },
     "footer": "Model by <kyutai>Kyutai</kyutai>, Hebrew phonemes by <renikud>renikud</renikud>",
     "speechLanguage": "Speech language",
@@ -67,6 +69,13 @@
   },
   "player": {
     "download": "Download wav"
+  },
+  "share": {
+    "intro": "A link back to this page. With the text in it, whoever opens it lands on this language, this voice and these words.",
+    "copyLink": "Copy the link",
+    "withText": "Include the text",
+    "withTextHint": "The words in the box, the language and the voice.",
+    "cloned": "A cloned voice stays in the tab it was made in, so the link carries the language's own voice instead."
   },
   "code": {
     "copy": "Copy",

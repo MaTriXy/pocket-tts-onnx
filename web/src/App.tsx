@@ -17,6 +17,7 @@ import {
   IconArrowRight,
   IconBrandGithub,
   IconCode,
+  IconLink,
   IconMicrophone,
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
@@ -34,6 +35,7 @@ import { ColorScheme } from "./components/ColorScheme";
 import { Loader } from "./components/Loader";
 import { Player } from "./components/Player";
 import { loadTuning, saveTuning, Settings, type Tuning } from "./components/Settings";
+import { Share, type ShareOptions } from "./components/Share";
 import { Snippets } from "./components/Snippets";
 import { VoicePanel, type ClonedVoice } from "./components/VoicePanel";
 import { Waveform } from "./components/Waveform";
@@ -60,6 +62,7 @@ import {
   resample,
 } from "pocket-tts-onnx/browser";
 import { prefersHebrew } from "./i18n";
+import { buildLink, readLink } from "./link";
 import PocketTTSWorker from "pocket-tts-onnx/worker?worker";
 import { ESPEAK_WASM_URL, MODELS_URL, ORT_WASM_URL } from "./models";
 
@@ -177,6 +180,12 @@ const WORKER_STATUS: Record<string, string> = {
 
 const RTL = /[\u0590-\u05FF]/;
 
+// What the address bar asked for, read once: another site links in here with a
+// language, a voice and a line to say, and the share button writes the same.
+const LINK = readLink();
+
+const OPENING_MODE: Mode = LINK.mode ?? (prefersHebrew() ? "hebrew" : "english");
+
 const clock = (seconds: number) => {
   const whole = Math.max(0, Math.floor(seconds));
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
@@ -190,8 +199,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   // The browser's own language is the first guess at what will be spoken.
-  const [mode, setMode] = useState<Mode>(() => (prefersHebrew() ? "hebrew" : "english"));
-  const [text, setText] = useState(() => SAMPLES[prefersHebrew() ? "hebrew" : "english"]);
+  const [mode, setMode] = useState<Mode>(OPENING_MODE);
+  const [text, setText] = useState(() => LINK.text ?? SAMPLES[OPENING_MODE]);
   const [voice, setVoice] = useState("alba");
   const [cloned, setCloned] = useState<ClonedVoice | null>(null);
   const [busy, setBusy] = useState(false);
@@ -207,6 +216,8 @@ export function App() {
   // composer needs beside it, so each opens over the page and leaves again.
   const [codeOpen, setCodeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [share, setShare] = useState<ShareOptions>({ withText: true });
   const [tuning, setTuning] = useState<Tuning>(loadTuning);
   useEffect(() => saveTuning(tuning), [tuning]);
 
@@ -229,11 +240,15 @@ export function App() {
   // stay on screen meanwhile, so the panel never collapses and springs back.
   const [debugPending, setDebugPending] = useState(false);
 
+  // The voice named in the link, held until a model that has it is loaded.
+  const wanted = useRef(LINK.voice);
   const conditioning = useRef<Float32Array | null>(null);
   const playerRef = useRef<FramePlayer | null>(null);
   const abort = useRef<AbortController | null>(null);
   const recorder = useRef<Recorder | null>(null);
   const levelsRef = useRef(0);
+  // The language the text in the box belongs to.
+  const spoken = useRef(mode);
 
   // Bring up the model for `next`, dropping whichever one is loaded now. The
   // card goes back to its skeleton meanwhile, with the download in it.
@@ -264,7 +279,12 @@ export function App() {
           const spoken = next === "hebrew" && !loaded.hasPhonemes ? "english" : next;
           if (spoken !== next) setMode(spoken);
           const preferred = language(spoken).voice;
-          setVoice(loaded.voices.includes(preferred) ? preferred : loaded.voices[0]);
+          // A link may name the voice it wants, and gets it if this model has
+          // one by that name; the language's own default stands otherwise.
+          const asked = wanted.current;
+          wanted.current = undefined;
+          const chosen = asked && loaded.voices.includes(asked) ? asked : preferred;
+          setVoice(loaded.voices.includes(chosen) ? chosen : loaded.voices[0]);
           // Every language was released with its own sampler temperature, and
           // the Spanish and French models want 0.7 where English wants 0.3.
           // Carrying one number across all of them is what makes an unfamiliar
@@ -323,6 +343,11 @@ export function App() {
   );
 
   useEffect(() => {
+    // Only an actual change of language. Arriving is not one: the text is
+    // either the sample already or the one the link came with, and this would
+    // throw the second away.
+    if (spoken.current === mode) return;
+    spoken.current = mode;
     setText(SAMPLES[mode]);
     // A cloned voice belongs to whoever recorded it, so it survives the switch;
     // otherwise land on a voice that speaks the language now selected.
@@ -610,6 +635,15 @@ export function App() {
     }));
   }, [t]);
 
+  // A cloned voice lives in this tab and in no other, so a link never names
+  // one: whoever opens it gets the language's own voice instead.
+  const shareable = voice === cloned?.name ? undefined : voice;
+  const link = useMemo(
+    () =>
+      buildLink(share.withText ? { mode, voice: shareable, text } : {}),
+    [mode, share, shareable, text],
+  );
+
   const rtl = RTL.test(text);
 
   // A voice belongs to the language it was recorded in; anything the export did
@@ -703,6 +737,18 @@ export function App() {
                       </Group>
                       <Group gap={6}>
                         <Text className="mono">{language(mode).label.toLowerCase()}</Text>
+                        <Tooltip label={t("app.share")} withArrow>
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            radius="xl"
+                            onClick={() => setShareOpen(true)}
+                            aria-label={t("app.share")}
+                          >
+                            <IconLink size={15} />
+                          </ActionIcon>
+                        </Tooltip>
                         <Tooltip label={t("app.runFromPython")} withArrow>
                           <ActionIcon
                             variant="subtle"
@@ -840,6 +886,22 @@ export function App() {
           overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
         >
           <Snippets spoken={language(mode)} />
+        </Modal>
+
+        <Modal
+          opened={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={t("app.modal.share")}
+          centered
+          radius={18}
+          overlayProps={{ backgroundOpacity: 0.4, blur: 2 }}
+        >
+          <Share
+            link={link}
+            options={share}
+            onChange={setShare}
+            cloned={share.withText && voice === cloned?.name}
+          />
         </Modal>
 
         <Modal
