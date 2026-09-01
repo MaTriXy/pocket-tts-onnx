@@ -9,6 +9,13 @@
  * rather than `require-corp`, so the models can still come from Hugging Face,
  * which sends no CORP header of its own.
  *
+ * COOP and COEP only isolate a top-level page. Inside an iframe on a page that
+ * sends neither, such as the Space page on huggingface.co, the browser will not
+ * isolate the frame however its own responses are headed, and speech runs on
+ * one thread. Document-Isolation-Policy (Chrome 137 and later) isolates a
+ * frame on its own terms, whatever the embedder sends, so the worker adds it
+ * too. Browsers without it ignore the header.
+ *
  * Adapted from the well-known coi-serviceworker shim.
  */
 
@@ -29,6 +36,7 @@ if (typeof window === "undefined") {
         headers.set("Cross-Origin-Embedder-Policy", "credentialless");
         headers.set("Cross-Origin-Opener-Policy", "same-origin");
         headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+        headers.set("Document-Isolation-Policy", "isolate-and-credentialless");
         return new Response(response.body, {
           status: response.status,
           statusText: response.statusText,
