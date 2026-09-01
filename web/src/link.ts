@@ -37,7 +37,16 @@ export function readLink(search: string = window.location.search): LinkState {
 }
 
 /**
- * A link back to this page in the state described.
+ * Where a shared link points.
+ *
+ * Not `window.location`: this page is served from several places — a dev
+ * server, a Pages build, the frame a Space is embedded in — and only one of
+ * them is an address worth sending to somebody.
+ */
+export const SITE = "https://thewh1teagle-pockettts.static.hf.space/";
+
+/**
+ * A link to the page in the state described.
  *
  * Everything the link does not carry is left out entirely, so the plainest
  * share is the bare address with nothing after it.
@@ -47,7 +56,6 @@ export function buildLink(state: LinkState): string {
   if (state.mode) params.set("lang", state.mode);
   if (state.voice) params.set("voice", state.voice);
   if (state.text) params.set("text", state.text);
-  const { origin, pathname } = window.location;
   const query = params.toString();
-  return origin + pathname + (query ? `?${query}` : "");
+  return SITE + (query ? `?${query}` : "");
 }
