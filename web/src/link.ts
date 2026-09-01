@@ -41,9 +41,11 @@ export function readLink(search: string = window.location.search): LinkState {
  *
  * Not `window.location`: this page is served from several places — a dev
  * server, a Pages build, the frame a Space is embedded in — and only one of
- * them is an address worth sending to somebody.
+ * them is an address worth sending to somebody. The Space page passes its
+ * query string on to the frame, so a link there carries everything a link to
+ * the frame itself would.
  */
-export const SITE = "https://thewh1teagle-pockettts.static.hf.space/";
+export const SITE = "https://huggingface.co/spaces/thewh1teagle/PocketTTS";
 
 /**
  * A link to the page in the state described.
