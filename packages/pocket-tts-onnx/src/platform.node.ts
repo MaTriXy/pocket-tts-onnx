@@ -21,6 +21,10 @@ export interface CacheEntry {
   bytes(): Promise<ArrayBuffer>;
 }
 
+export interface LegacyEntry extends CacheEntry {
+  remove(): Promise<void>;
+}
+
 const require = createRequire(import.meta.url);
 
 /**
@@ -74,6 +78,23 @@ export async function cachePut(key: string, bytes: ArrayBuffer): Promise<void> {
   } catch {
     /* not cached */
   }
+}
+
+/** An entry under the old relative key, which on disk is just another filename. */
+export async function cacheGetLegacy(name: string, version: string): Promise<LegacyEntry | null> {
+  const key = `${name}?v=${version}`;
+  const hit = await cacheGet(key);
+  if (!hit) return null;
+  return {
+    ...hit,
+    remove: async () => {
+      try {
+        await rm(join(root(), filename(key)), { force: true });
+      } catch {
+        /* nothing to drop */
+      }
+    },
+  };
 }
 
 export async function cacheClear(): Promise<void> {

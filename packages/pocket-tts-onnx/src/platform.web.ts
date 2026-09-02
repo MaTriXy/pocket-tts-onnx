@@ -19,6 +19,10 @@ export interface CacheEntry {
   bytes(): Promise<ArrayBuffer>;
 }
 
+export interface LegacyEntry extends CacheEntry {
+  remove(): Promise<void>;
+}
+
 // v1 keyed entries by `url#digest`, and the Cache API ignores fragments when
 // it matches, so every export of a model landed on the first one ever cached.
 const CACHE = "pocket-tts-models-v2";
@@ -47,10 +51,39 @@ export async function cachePut(key: string, bytes: ArrayBuffer): Promise<void> {
   // Never fail a load over the cache: quota is easy to exceed, and the model
   // still works, it just downloads again next time.
   try {
-    await (await open())?.put(key, new Response(bytes.slice(0)));
+    // A synthesized Response carries no Content-Length of its own, and the
+    // size is what `cacheGet` reads back before touching the body.
+    const headers = { "content-length": String(bytes.byteLength) };
+    await (await open())?.put(key, new Response(bytes.slice(0), { headers }));
   } catch {
     /* not cached */
   }
+}
+
+/**
+ * An entry keyed the old way: `name?v=digest`, relative, and so resolved
+ * against whichever script stored it. Whatever folder that was, the path ends
+ * in the name and the query is the digest, which is enough to find it.
+ */
+export async function cacheGetLegacy(name: string, version: string): Promise<LegacyEntry | null> {
+  try {
+    const cache = await open();
+    if (!cache) return null;
+    for (const request of await cache.keys()) {
+      const url = new URL(request.url);
+      if (url.search !== `?v=${version}` || !url.pathname.endsWith(`/${name}`)) continue;
+      const hit = await cache.match(request);
+      if (!hit) continue;
+      return {
+        size: Number(hit.headers.get("content-length") ?? 0),
+        bytes: () => hit.arrayBuffer(),
+        remove: () => cache.delete(request).then(() => undefined),
+      };
+    }
+  } catch {
+    /* no cache to look through */
+  }
+  return null;
 }
 
 export async function cacheClear(): Promise<void> {

@@ -1,4 +1,4 @@
-import { Box, Group, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Group, Stack, Text } from "@mantine/core";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
@@ -16,15 +16,24 @@ function Bone({ w, h = 12, r = 6, style }: { w: number | string; h?: number; r?:
  * footer — so the download finishes by filling the shapes in rather than by
  * replacing a small box with a large one. The progress sits in the composer,
  * which is the one place the eye goes first.
+ *
+ * `fullPage` is where this same page lives on its own. Inside another site's
+ * frame the browser treats what the page stores as third-party: Brave throws
+ * it away once the last tab of the embedding site closes, Chrome refuses it
+ * entirely with third-party cookies off, Safari keeps it for a week. A
+ * download that will not be kept is worth saying so, next to the address
+ * where it would be.
  */
 export function Loader({
   progress,
   label,
   error,
+  fullPage,
 }: {
   progress: AssetProgress | null;
   label: string;
   error: string | null;
+  fullPage?: string;
 }) {
   const { t } = useTranslation();
   const format = (bytes: number) => t("loader.mb", { n: (bytes / 1e6).toFixed(0) });
@@ -61,6 +70,14 @@ export function Loader({
                 {error ?? t(progress?.cached ? "loader.introCached" : "loader.intro")}
               </Text>
             </Stack>
+            {!error && fullPage && !progress?.cached && (
+              <Text size="sm" c="dimmed" maw={520}>
+                {t("loader.embedded")}{" "}
+                <Anchor href={fullPage} target="_blank" rel="noopener" fz="sm" fw={600} c="ink">
+                  {t("loader.openFullPage")}
+                </Anchor>
+              </Text>
+            )}
             {!error && (
               <>
                 <div

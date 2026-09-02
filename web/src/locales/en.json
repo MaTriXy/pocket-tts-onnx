@@ -65,7 +65,9 @@
     "fromCache": "from cache",
     "ofTotal": "{{loaded}} of {{total}}",
     "connecting": "connecting",
-    "mb": "{{n}} MB"
+    "mb": "{{n}} MB",
+    "embedded": "Inside this frame the browser may not keep the model between visits, and it is fetched again.",
+    "openFullPage": "Open the full page to keep it."
   },
   "player": {
     "download": "Download wav"

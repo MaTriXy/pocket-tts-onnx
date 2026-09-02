@@ -7,7 +7,7 @@
  * second run pays no network at all.
  */
 
-import { cacheGet, cachePut, cacheClear, readLocal } from "#platform";
+import { cacheGet, cacheGetLegacy, cachePut, cacheClear, readLocal } from "#platform";
 
 export interface Progress {
   loaded: number;
@@ -22,15 +22,40 @@ export interface Progress {
  * by digest rather than by URL, the same bytes published under two folders,
  * as `en/` and `he/` are, cost one download, and a changed model under the
  * same name simply misses. The Cache API wants a URL for a key, and compares
- * query strings but drops fragments, so the digest rides in `?v=` on the
- * file's name alone.
+ * query strings but drops fragments, so the digest rides in `?v=`.
+ *
+ * The key is absolute, on an origin of its own. A relative key resolves
+ * against whoever asks: the page for `isCached`, the worker script for
+ * `fetchAsset`, and a bundler puts the worker under `assets/`, so the two
+ * asked after different entries and the page never saw what the worker had
+ * stored. The origin is made up and never fetched; the Cache API only wants
+ * it to look like a URL.
  */
+const KEY_ORIGIN = "https://cache.pocket-tts-onnx.invalid/";
+
 const keyFor = (url: string, version?: string) =>
-  version ? `${url.slice(url.lastIndexOf("/") + 1)}?v=${version}` : url;
+  version ? `${KEY_ORIGIN}${url.slice(url.lastIndexOf("/") + 1)}?v=${version}` : url;
+
+/**
+ * An asset stored under the key it had before the origin above: relative, so
+ * the worker resolved it under its own folder and the page under its own.
+ * Looked up on a miss, once, and moved, so an existing download is not made
+ * again.
+ */
+async function lookup(url: string, version?: string) {
+  const key = keyFor(url, version);
+  const hit = await cacheGet(key);
+  if (hit || !version) return hit;
+  const old = await cacheGetLegacy(url.slice(url.lastIndexOf("/") + 1), version);
+  if (!old) return null;
+  await cachePut(key, await old.bytes());
+  await old.remove();
+  return (await cacheGet(key)) ?? old;
+}
 
 /** Whether this exact asset is already cached, without fetching it. */
 export async function isCached(url: string, version?: string): Promise<boolean> {
-  return (await cacheGet(keyFor(url, version))) !== null;
+  return (await lookup(url, version)) !== null;
 }
 
 /**
@@ -53,7 +78,7 @@ export async function fetchAsset(
   }
 
   const key = keyFor(url, version);
-  const hit = await cacheGet(key);
+  const hit = await lookup(url, version);
   if (hit) {
     // Say it is a cache hit before reading the body, not after. Waiting until
     // the bytes land would leave a caller claiming to be downloading for the

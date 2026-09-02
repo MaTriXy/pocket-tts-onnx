@@ -184,6 +184,20 @@ const RTL = /[\u0590-\u05FF]/;
 // language, a voice and a line to say, and the share button writes the same.
 const LINK = readLink();
 
+/**
+ * Whether this page is inside another site's frame, as it is on the Space
+ * page. What a framed page stores is third-party storage to the browser,
+ * which may not keep it, so the loader offers the page's own address: the
+ * frame's URL is exactly that, query string and all.
+ */
+const EMBEDDED = (() => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+})();
+
 const OPENING_MODE: Mode = LINK.mode ?? (prefersHebrew() ? "hebrew" : "english");
 
 const clock = (seconds: number) => {
@@ -698,6 +712,7 @@ export function App() {
               progress={progress}
               label={t(`stage.${stage}`, { language: language(mode).label })}
               error={error}
+              fullPage={EMBEDDED ? window.location.href : undefined}
             />
           ) : (
             <motion.div

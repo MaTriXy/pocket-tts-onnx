@@ -27,7 +27,10 @@ in your browser on onnxruntime-web. Streaming speech in Hebrew and English,
 voice cloning from a few seconds of audio, and nothing leaves the tab.
 
 The weights come from [thewh1teagle/pocket-tts-onnx](https://huggingface.co/thewh1teagle/pocket-tts-onnx)
-and are cached after the first visit. Source and docs:
+and are cached after the first visit. Browsers treat what a framed page stores
+as third-party storage and may not keep it, so to fetch the model once and
+keep it, open the app on its own page:
+[thewh1teagle-pockettts.static.hf.space](https://thewh1teagle-pockettts.static.hf.space/). Source and docs:
 [thewh1teagle/pocket-tts-onnx](https://github.com/thewh1teagle/pocket-tts-onnx).
 
 This page is built from `web/` in that repository and pushed here on every
